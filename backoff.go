@@ -28,13 +28,6 @@ func ConstBackoff(interval time.Duration) Backoff {
 	})
 }
 
-// Backoff represents a backoff strategy to be used by the actor.
-type Backoff interface {
-	// RetryAfter should return the time duration which should be
-	// elapsed before the next queueForRetry.
-	RetryAfter(msg Message) time.Duration
-}
-
 // backoffFunc is an adaptor to allow using ordinary Go functions as Backoff
 // strategy.
 type backoffFunc func(retriesDone int) time.Duration

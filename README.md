@@ -1,4 +1,4 @@
-# Fusion
+# 💥 Fusion
 
 > WIP
 

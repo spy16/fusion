@@ -1,6 +1,9 @@
 package fusion
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"time"
 )
 
@@ -74,4 +77,24 @@ func (opts *Options) defaults() {
 			opts.Logger.Errorf("failed to process: %+v", msg)
 		}
 	}
+}
+
+func noOpProcessor(_ context.Context, _ Message) error { return Skip }
+
+type goLogger struct{}
+
+func (g goLogger) Debugf(msg string, args ...interface{}) {
+	log.Printf("[DEBUG] %s", fmt.Sprintf(msg, args...))
+}
+
+func (g goLogger) Infof(msg string, args ...interface{}) {
+	log.Printf("[INFO ] %s", fmt.Sprintf(msg, args...))
+}
+
+func (g goLogger) Warnf(msg string, args ...interface{}) {
+	log.Printf("[WARN ] %s", fmt.Sprintf(msg, args...))
+}
+
+func (g goLogger) Errorf(msg string, args ...interface{}) {
+	log.Printf("[ERROR] %s", fmt.Sprintf(msg, args...))
 }

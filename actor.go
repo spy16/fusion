@@ -9,20 +9,6 @@ import (
 	"time"
 )
 
-// New returns a new actor with given configurations. If proc is nil, actor will
-// consume from queue and skip everything. If queue is nil, in-memory queue will
-// be used if retries are enabled.
-func New(opts Options) *Actor {
-	opts.defaults()
-	return &Actor{
-		stream: opts.Stream,
-		dq:     opts.Queue,
-		proc:   opts.Processor,
-		opts:   opts,
-		Logger: opts.Logger,
-	}
-}
-
 // Actor represents an entity that consumes messages from the stream and acts on it.
 // If processing message from the stream fails, it is queued in the configured delay
 // queue if retries are enabled. If retries are not enabled, messages are passed to
@@ -124,7 +110,9 @@ func (actor *Actor) readFn(ctx context.Context, msg Message) (err error) {
 	actor.Debugf("processing message: %+v", msg)
 	procErr := actor.proc(ctx, msg)
 	if procErr != nil && procErr != Skip {
-		if err := actor.queueForRetry(msg); err != nil {
+		if procErr == Failed {
+			actor.opts.OnFailure(msg, procErr)
+		} else if err := actor.queueForRetry(msg); err != nil {
 			actor.opts.OnFailure(msg, procErr)
 		}
 	}
