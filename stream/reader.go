@@ -83,7 +83,7 @@ func (rd *Lines) init() (err error) {
 	rd.once.Do(func() {
 		rd.sc = bufio.NewScanner(rd.From)
 
-		for i := 0; i < rd.Offset-1; i++ {
+		for i := 0; i < rd.Offset; i++ {
 			if !rd.sc.Scan() {
 				err = rd.sc.Err()
 				break
