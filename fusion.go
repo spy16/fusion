@@ -49,7 +49,7 @@ type Stream interface {
 }
 
 // DelayQueue implementation maintains the messages in a timestamp based order.
-// This is used by actor for retries and manual enqueuing messages.
+// This is used by actor for retries.
 type DelayQueue interface {
 	// Enqueue must save the message with priority based on the timestamp set.
 	// If no timestamp is set, current timestamp should be assumed.

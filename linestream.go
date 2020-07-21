@@ -1,17 +1,17 @@
-package stream
+package fusion
 
 import (
 	"bufio"
 	"context"
 	"io"
 	"sync"
-
-	"github.com/spy16/fusion"
 )
 
-// Lines implements a stream using io.Reader. This implementation scans the
-// reader line-by-line and streams each line as a message.
-type Lines struct {
+// LineStream implements a stream using io.Reader. This implementation scans
+// the reader line-by-line and streams each line as a message. If offset is
+// set, 'offset' number of lines are read and skipped. If Size is set, only
+// 'size' number of lines are read after which the stream will return EOF.
+type LineStream struct {
 	From   io.Reader // From is the reader to use.
 	Offset int       // Offset to start at.
 	Size   int       // Number of lines to stream.
@@ -24,35 +24,35 @@ type Lines struct {
 }
 
 // Read reads a line from the file and passes it to the readFn and advances.
-func (rd *Lines) Read(ctx context.Context, readFn fusion.ReadFn) error {
+func (rd *LineStream) Read(ctx context.Context, readFn ReadFn) error {
 	line, err := rd.readLine()
 	if err != nil {
 		return err
 	}
 
-	err = readFn(ctx, fusion.Message{
-		Key: nil, // change this to line offset
+	// TODO(spy16): change key to have line offset
+	err = readFn(ctx, Message{
+		Key: nil,
 		Val: []byte(line),
 	})
 	if err != nil {
 		rd.mu.Lock()
 		defer rd.mu.Unlock()
 		rd.lines = append(rd.lines, line)
-		return nil
 	}
 
 	return nil
 }
 
 // Close closes the underlying reader if supported.
-func (rd *Lines) Close() error {
-	if closer, ok := rd.From.(io.Closer); ok {
+func (rd *LineStream) Close() error {
+	if closer, ok := rd.From.(io.ReadCloser); ok {
 		return closer.Close()
 	}
 	return nil
 }
 
-func (rd *Lines) readLine() (string, error) {
+func (rd *LineStream) readLine() (string, error) {
 	if err := rd.init(); err != nil {
 		return "", err
 	}
@@ -79,7 +79,7 @@ func (rd *Lines) readLine() (string, error) {
 	return rd.sc.Text(), nil
 }
 
-func (rd *Lines) init() (err error) {
+func (rd *LineStream) init() (err error) {
 	rd.once.Do(func() {
 		rd.sc = bufio.NewScanner(rd.From)
 

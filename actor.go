@@ -106,14 +106,31 @@ func (actor *Actor) readFn(ctx context.Context, msg Message) (err error) {
 		}
 	}()
 
+	err = actor.process(ctx, msg)
+	if err != nil && !errors.Is(err, Skip) {
+		if errors.Is(err, Failed) {
+			return actor.opts.OnFailure(msg, err)
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (actor *Actor) process(ctx context.Context, msg Message) error {
 	msg.Attempts++
-	actor.Debugf("processing message: %+v", msg)
+	actor.Debugf("processing (attempt=%d): key=\"%s\", val=\"%s\"", msg.Attempts, msg.Key, msg.Val)
+
 	procErr := actor.proc(ctx, msg)
-	if procErr != nil && procErr != Skip {
-		if errors.Is(procErr, Failed) {
-			actor.opts.OnFailure(msg, procErr)
-		} else if err := actor.queueForRetry(msg); err != nil {
-			actor.opts.OnFailure(msg, procErr)
+	if procErr != nil {
+		if errors.Is(procErr, Skip) || errors.Is(procErr, Failed) {
+			return procErr
+		}
+
+		// processing failed with unhandled error. queue for retry.
+		if err := actor.queueForRetry(msg); err != nil {
+			// failed to queue for retry. try to call the OnFailure handler.
+			return actor.opts.OnFailure(msg, procErr)
 		}
 	}
 
@@ -130,7 +147,6 @@ func (actor *Actor) queueForRetry(msg Message) error {
 
 	tryAfter := actor.opts.Backoff.RetryAfter(msg)
 	msg.Time = msg.Time.Add(tryAfter)
-	actor.Debugf("msg %+v failed, queued retry after %s", msg, tryAfter)
 	return actor.dq.Enqueue(msg)
 }
 

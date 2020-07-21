@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/spy16/fusion"
-	"github.com/spy16/fusion/stream"
 )
 
 func main() {
@@ -28,10 +27,11 @@ func main() {
 			time.Sleep(1 * time.Second)
 			return nil
 		},
-		OnFailure: func(msg fusion.Message, err error) {
+		OnFailure: func(msg fusion.Message, err error) error {
 			logrus.Printf("failed msg=%v, err=%v", msg, err)
+			return nil
 		},
-		Stream: &stream.Lines{From: os.Stdin, Offset: 2},
+		Stream: &fusion.LineStream{From: os.Stdin, Offset: 2},
 	})
 
 	if err := actor.Run(ctx); err != nil {

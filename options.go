@@ -40,8 +40,10 @@ type Options struct {
 	// OnFailure if set, will be called when all retries are exhausted
 	// and the processing has not succeeded. If not set, such messages
 	// will simply be logged and ignored. err argument will have error
-	// that occurred in processor in the last retry attempt.
-	OnFailure func(msg Message, err error)
+	// that occurred in processor in the last retry attempt. If this
+	// returns error, message will not be committed to the stream/queue
+	// where it was read from.
+	OnFailure func(msg Message, err error) error
 
 	// Logger can be overridden to use custom logger.
 	Logger Logger
@@ -73,8 +75,9 @@ func (opts *Options) defaults() {
 	}
 
 	if opts.OnFailure == nil {
-		opts.OnFailure = func(msg Message, err error) {
+		opts.OnFailure = func(msg Message, err error) error {
 			opts.Logger.Errorf("failed to process: %+v", msg)
+			return nil
 		}
 	}
 }
