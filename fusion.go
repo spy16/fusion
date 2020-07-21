@@ -67,7 +67,7 @@ type DelayQueue interface {
 // ReadFn implementation is called by the message queue to handle a message.
 type ReadFn func(ctx context.Context, msg Message) error
 
-// Message represents a message from the stream. Contents of key and value are
+// ToMessage represents a message from the stream. Contents of key and value are
 // not validated by the framework itself, but may be validated by the processor
 // functions.
 type Message struct {

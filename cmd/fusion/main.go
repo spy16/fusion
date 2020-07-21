@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"os/signal"
@@ -23,7 +24,7 @@ func main() {
 		Backoff:    fusion.ExpBackoff(2, 1*time.Millisecond, 1*time.Second),
 		Logger:     logrus.New(),
 		Processor: func(ctx context.Context, msg fusion.Message) error {
-			fmt.Printf("value='%s'\n", string(msg.Val))
+			fmt.Printf("'%s' @ line=%d\n", string(msg.Val), binary.LittleEndian.Uint64(msg.Key))
 			time.Sleep(1 * time.Second)
 			return nil
 		},

@@ -3,6 +3,7 @@ package fusion
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"io"
 	"sync"
 )
@@ -18,7 +19,7 @@ type LineStream struct {
 
 	count int
 	mu    sync.Mutex
-	lines []string
+	lines []lineData
 	sc    *bufio.Scanner
 	once  sync.Once
 }
@@ -30,15 +31,11 @@ func (rd *LineStream) Read(ctx context.Context, readFn ReadFn) error {
 		return err
 	}
 
-	// TODO(spy16): change key to have line offset
-	err = readFn(ctx, Message{
-		Key: nil,
-		Val: []byte(line),
-	})
+	err = readFn(ctx, line.ToMessage())
 	if err != nil {
 		rd.mu.Lock()
 		defer rd.mu.Unlock()
-		rd.lines = append(rd.lines, line)
+		rd.lines = append(rd.lines, *line)
 	}
 
 	return nil
@@ -52,31 +49,35 @@ func (rd *LineStream) Close() error {
 	return nil
 }
 
-func (rd *LineStream) readLine() (string, error) {
+func (rd *LineStream) readLine() (*lineData, error) {
 	if err := rd.init(); err != nil {
-		return "", err
+		return nil, err
 	}
 	rd.mu.Lock()
 	defer rd.mu.Unlock()
 
 	if rd.Size > 0 && rd.count >= rd.Size {
-		return "", io.EOF
+		return nil, io.EOF
 	}
 	rd.count++
 
 	if len(rd.lines) > 0 {
 		line := rd.lines[0]
 		rd.lines = rd.lines[1:]
-		return line, nil
+		return &line, nil
 	}
 
 	if !rd.sc.Scan() {
 		if rd.sc.Err() == nil {
-			return "", io.EOF
+			return nil, io.EOF
 		}
-		return "", rd.sc.Err()
+		return nil, rd.sc.Err()
 	}
-	return rd.sc.Text(), nil
+
+	return &lineData{
+		Value:  rd.sc.Text(),
+		Number: uint64(rd.count + rd.Offset - 1),
+	}, nil
 }
 
 func (rd *LineStream) init() (err error) {
@@ -91,4 +92,18 @@ func (rd *LineStream) init() (err error) {
 		}
 	})
 	return nil
+}
+
+type lineData struct {
+	Value  string
+	Number uint64
+}
+
+func (ld lineData) ToMessage() Message {
+	var key [8]byte
+	binary.LittleEndian.PutUint64(key[:], ld.Number)
+	return Message{
+		Key: key[:],
+		Val: []byte(ld.Value),
+	}
 }
