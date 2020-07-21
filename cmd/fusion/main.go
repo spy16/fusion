@@ -31,7 +31,7 @@ func main() {
 		OnFailure: func(msg fusion.Message, err error) {
 			logrus.Printf("failed msg=%v, err=%v", msg, err)
 		},
-		Stream: &stream.Lines{From: os.Stdin},
+		Stream: &stream.Lines{From: os.Stdin, Offset: 2},
 	})
 
 	if err := actor.Run(ctx); err != nil {

@@ -110,7 +110,7 @@ func (actor *Actor) readFn(ctx context.Context, msg Message) (err error) {
 	actor.Debugf("processing message: %+v", msg)
 	procErr := actor.proc(ctx, msg)
 	if procErr != nil && procErr != Skip {
-		if procErr == Failed {
+		if errors.Is(procErr, Failed) {
 			actor.opts.OnFailure(msg, procErr)
 		} else if err := actor.queueForRetry(msg); err != nil {
 			actor.opts.OnFailure(msg, procErr)

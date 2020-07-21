@@ -12,8 +12,11 @@ import (
 // Lines implements a stream using io.Reader. This implementation scans the
 // reader line-by-line and streams each line as a message.
 type Lines struct {
-	From io.Reader
+	From   io.Reader // From is the reader to use.
+	Offset int       // Offset to start at.
+	Size   int       // Number of lines to stream.
 
+	count int
 	mu    sync.Mutex
 	lines []string
 	sc    *bufio.Scanner
@@ -27,7 +30,10 @@ func (rd *Lines) Read(ctx context.Context, readFn fusion.ReadFn) error {
 		return err
 	}
 
-	err = readFn(ctx, fusion.Message{Val: []byte(line)})
+	err = readFn(ctx, fusion.Message{
+		Key: nil, // change this to line offset
+		Val: []byte(line),
+	})
 	if err != nil {
 		rd.mu.Lock()
 		defer rd.mu.Unlock()
@@ -53,6 +59,11 @@ func (rd *Lines) readLine() (string, error) {
 	rd.mu.Lock()
 	defer rd.mu.Unlock()
 
+	if rd.Size > 0 && rd.count >= rd.Size {
+		return "", io.EOF
+	}
+	rd.count++
+
 	if len(rd.lines) > 0 {
 		line := rd.lines[0]
 		rd.lines = rd.lines[1:]
@@ -68,9 +79,16 @@ func (rd *Lines) readLine() (string, error) {
 	return rd.sc.Text(), nil
 }
 
-func (rd *Lines) init() error {
+func (rd *Lines) init() (err error) {
 	rd.once.Do(func() {
 		rd.sc = bufio.NewScanner(rd.From)
+
+		for i := 0; i < rd.Offset-1; i++ {
+			if !rd.sc.Scan() {
+				err = rd.sc.Err()
+				break
+			}
+		}
 	})
 	return nil
 }

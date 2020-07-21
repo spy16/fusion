@@ -17,7 +17,8 @@ var (
 	Skip = errors.New("skip message")
 
 	// Failed can be returned from processor functions to indicate that the message
-	// must be failed immediately (i.e., skip retries even if available).
+	// must be failed immediately (i.e., skip retries even if available). Processors
+	// can wrap this message using '%w' directive in fmt functions.
 	Failed = errors.New("fail message")
 )
 
@@ -27,8 +28,8 @@ var (
 func New(opts Options) *Actor {
 	opts.defaults()
 	return &Actor{
-		stream: opts.Stream,
 		dq:     opts.Queue,
+		stream: opts.Stream,
 		proc:   opts.Processor,
 		opts:   opts,
 		Logger: opts.Logger,
