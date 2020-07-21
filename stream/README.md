@@ -1,3 +1,9 @@
+# Streams
+
+
+## Kafka
+
+```go
 package stream
 
 import (
@@ -70,3 +76,4 @@ func (k *Kafka) init() (err error) {
 	})
 	return err
 }
+```
