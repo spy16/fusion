@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"log"
 	"sync"
 )
 
@@ -83,7 +82,6 @@ func (rd *LineStream) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
 
 	go func() {
 		rd.stream(ctx)
-		log.Printf("line stream exiting")
 	}()
 	return rd.messages, nil
 }
