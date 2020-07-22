@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"log"
 	"sync"
 )
 
@@ -80,7 +81,10 @@ func (rd *LineStream) ConsumeFrom(ctx context.Context) (<-chan Message, error) {
 	rd.scanner = bufio.NewScanner(rd.From)
 	rd.messages = make(chan Message, rd.Buffer)
 
-	go rd.stream(ctx)
+	go func() {
+		rd.stream(ctx)
+		log.Printf("line stream exiting")
+	}()
 	return rd.messages, nil
 }
 
@@ -118,7 +122,7 @@ func (rd *LineStream) readOne() (*Message, error) {
 		return msg, nil
 	}
 
-	if rd.Size > 0 && rd.curOffset > rd.Size+rd.Offset {
+	if rd.Size > 0 && rd.curOffset >= rd.Size+rd.Offset {
 		return nil, io.EOF
 	}
 

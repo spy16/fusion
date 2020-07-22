@@ -82,10 +82,10 @@ func (fu *Fusion) worker(ctx context.Context) error {
 			if err := fu.process(ctx, msg); err != nil {
 				fu.logger.Warnf("failed to process, will NACK: %v", err)
 				msg.Ack(false, err)
-				return nil
+			} else {
+				fu.logger.Infof("processed successfully, will ACK")
+				msg.Ack(true, nil)
 			}
-			fu.logger.Infof("processed successfully, will ACK")
-			msg.Ack(true, nil)
 		}
 	}
 }

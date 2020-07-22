@@ -17,7 +17,7 @@ func TestNew(t *testing.T) {
 	t.Parallel()
 
 	t.Run("NilSource", func(t *testing.T) {
-		fu, err := fusion.New(nil, nil, fusion.Options{})
+		fu, err := fusion.New(nil, fusion.Options{})
 		assert.Error(t, err)
 		assert.Nil(t, fu)
 	})
@@ -25,7 +25,7 @@ func TestNew(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		src := &fusion.LineStream{}
 		noOp := []fusion.Proc{fusion.NoOpProcessor{}}
-		fu, err := fusion.New(src, noOp, fusion.Options{})
+		fu, err := fusion.New(src, fusion.Options{Stages: noOp})
 		assert.NoError(t, err)
 		assert.NotNil(t, fu)
 	})
@@ -42,7 +42,7 @@ func TestFusion_Run(t *testing.T) {
 		})
 
 		src := &fusion.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3")}
-		fu, err := fusion.New(src, []fusion.Proc{proc}, fusion.Options{})
+		fu, err := fusion.New(src, fusion.Options{Stages: []fusion.Proc{proc}})
 		require.NoError(t, err)
 		require.NotNil(t, fu)
 
@@ -71,7 +71,7 @@ func TestFusion_Run(t *testing.T) {
 			return &fusion.Message{Ack: func(_ bool, _ error) {}}, nil
 		})
 
-		fu, err := fusion.New(src, []fusion.Proc{proc}, fusion.Options{})
+		fu, err := fusion.New(src, fusion.Options{Stages: []fusion.Proc{proc}})
 		require.NoError(t, err)
 		require.NotNil(t, fu)
 

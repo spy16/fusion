@@ -16,7 +16,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	go callOnInterrupt(cancel)
 
-	ls := &fusion.LineStream{From: os.Stdin}
+	ls := &fusion.LineStream{From: os.Stdin, Offset: 0, Size: 2}
 
 	counter := int64(0)
 	proc := fusion.ProcFunc(func(ctx context.Context, msg fusion.Message) (*fusion.Message, error) {
@@ -24,7 +24,8 @@ func main() {
 		return nil, nil
 	})
 
-	fu, err := fusion.New(ls, []fusion.Proc{proc}, fusion.Options{})
+	opts := fusion.Options{Stages: []fusion.Proc{proc}}
+	fu, err := fusion.New(ls, opts)
 	if err != nil {
 		panic(err)
 	}
