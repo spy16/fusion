@@ -2,44 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/binary"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/sirupsen/logrus"
-
-	"github.com/spy16/fusion"
 )
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	go callOnInterrupt(cancel)
 
-	actor := fusion.New(fusion.Options{
-		Workers:    1,
-		MaxRetries: 3,
-		Backoff:    fusion.ExpBackoff(2, 1*time.Millisecond, 1*time.Second),
-		Logger:     logrus.New(),
-		Processor: func(ctx context.Context, msg fusion.Message) error {
-			fmt.Printf("'%s' @ line=%d\n", string(msg.Val), binary.LittleEndian.Uint64(msg.Key))
-			time.Sleep(1 * time.Second)
-			return nil
-		},
-		OnFailure: func(msg fusion.Message, err error) error {
-			logrus.Printf("failed msg=%v, err=%v", msg, err)
-			return nil
-		},
-		Stream: &fusion.LineStream{From: os.Stdin, Offset: 2},
-	})
-
-	if err := actor.Run(ctx); err != nil {
-		logrus.Fatalf("actor exited: %v", err)
-	} else {
-		logrus.Info("actor shutdown gracefully")
-	}
+	<-ctx.Done()
 }
 
 func callOnInterrupt(cancel context.CancelFunc) {

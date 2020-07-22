@@ -3,97 +3,142 @@ package fusion
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 )
 
-var (
-	// ErrNoMessage can be returned from stream/queue implementations to indicate that
-	// the stream/queue currently has no message. Actor might switch to polling mode in
-	// this case.
-	ErrNoMessage = errors.New("no message available")
+// New returns a new fusion stream processing pipeline instance with given
+// source and processor stages.
+func New(source Source, stages []Processor, opts Options) (*Fusion, error) {
+	opts.setDefaults()
 
-	// Skip can be returned by processor functions to indicate that the message
-	// should be ignored.
-	Skip = errors.New("skip message")
+	if source == nil {
+		return nil, errors.New("source must not be nil")
+	} else if len(stages) == 0 {
+		return nil, errors.New("at least one processor is needed")
+	}
 
-	// Failed can be returned from processor functions to indicate that the message
-	// must be failed immediately (i.e., skip retries even if available). Processors
-	// can wrap this message using '%w' directive in fmt functions.
-	Failed = errors.New("fail message")
-)
+	return &Fusion{
+		source:  source,
+		stages:  stages,
+		logger:  opts.Logger,
+		workers: opts.Workers,
+	}, nil
+}
 
-// New returns a new actor with given configurations. If proc is nil, actor will
-// consume from queue and skip everything. If queue is nil, in-memory queue will
-// be used if retries are enabled.
-func New(opts Options) *Actor {
-	opts.defaults()
-	return &Actor{
-		dq:     opts.Queue,
-		stream: opts.Stream,
-		proc:   opts.Processor,
-		opts:   opts,
-		Logger: opts.Logger,
+// Fusion represents a fusion streaming pipeline. A fusion instance has a
+// stream source and one or more processing stages.
+type Fusion struct {
+	logger  Logger
+	workers int
+	source  Source
+	stages  []Processor
+	stream  <-chan Message
+}
+
+// Run spawns all the worker goroutines and blocks until all of them exit.
+// Worker threads exit when context is cancelled or when source closes. It
+// returns any error that was returned from the source.
+func (fu *Fusion) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := fu.source.ConsumeFrom(ctx)
+	if err != nil {
+		return err
+	}
+	fu.stream = stream
+
+	wg := &sync.WaitGroup{}
+	for i := 0; i < fu.workers; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			if err := fu.worker(ctx); err != nil {
+				fu.logger.Warnf("worker %d exited due to error: %v", id, err)
+				return
+			}
+			fu.logger.Debugf("worker %d exited normally", id)
+		}(i)
+	}
+	wg.Wait()
+
+	fu.logger.Debugf("all workers returned")
+	if se, ok := fu.source.(interface{ Err() error }); ok {
+		return se.Err()
+	}
+	return nil
+}
+
+func (fu *Fusion) worker(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			fu.drainAll(1 * time.Second)
+			return nil
+
+		case msg, open := <-fu.stream:
+			if !open {
+				return nil
+			}
+			if err := fu.process(ctx, msg); err != nil {
+				fu.logger.Warnf("failed to process, will NACK: %v", err)
+				msg.Ack(false, err)
+				return nil
+			}
+			fu.logger.Infof("processed successfully, will ACK")
+			msg.Ack(true, nil)
+		}
 	}
 }
 
-// Processor implementations define the logic to be executed by actor on receiving
-// a message from the stream.
-type Processor func(ctx context.Context, msg Message) error
+func (fu *Fusion) process(ctx context.Context, msg Message) error {
+	fu.logger.Debugf("message received: %+v", msg)
+	var err error
+	var res *Message
 
-// Stream represents an immutable stream of messages.
-type Stream interface {
-	// Read should read the next message available in  the stream and
-	// call readFn with it. Success/Failure of the readFn invocation
-	// should be used as ACK/NACK respectively.
-	Read(ctx context.Context, readFn ReadFn) error
+	res = &msg
+	for _, stage := range fu.stages {
+		res, err = stage.Process(ctx, msg)
+		if err != nil {
+			return err
+		}
+		if res == nil {
+			// message was filtered out. stop here.
+			return nil
+		}
+	}
+	return nil
 }
 
-// DelayQueue implementation maintains the messages in a timestamp based order.
-// This is used by actor for retries.
-type DelayQueue interface {
-	// Enqueue must save the message with priority based on the timestamp set.
-	// If no timestamp is set, current timestamp should be assumed.
-	Enqueue(msg Message) error
-
-	// Dequeue should read one message that has an expired timestamp and call
-	// readFn with it. Success/failure from readFn must be considered as ACK
-	// or nACK respectively. When message is not available, Dequeue should not
-	// block but return ErrNoMessage. Queue can return EOF to indicate that the
-	// queue is fully drained. Other errors from the queue will be logged and
-	// ignored.
-	Dequeue(ctx context.Context, readFn ReadFn) error
+func (fu *Fusion) drainAll(timeout time.Duration) {
+	select {
+	case <-time.After(timeout):
+		fu.logger.Warnf("could not drain the stream within timeout")
+		return
+	case msg, open := <-fu.stream:
+		if !open {
+			return
+		}
+		msg.Ack(false, nil)
+	}
 }
 
-// ReadFn implementation is called by the message queue to handle a message.
-type ReadFn func(ctx context.Context, msg Message) error
-
-// ToMessage represents a message from the stream. Contents of key and value are
-// not validated by the framework itself, but may be validated by the processor
-// functions.
-type Message struct {
-	Key []byte `json:"key" xml:"key"`
-	Val []byte `json:"val" xml:"val"`
-
-	// Time at which message arrived or should be processed when scheduled by
-	// retrying logic. (Managed by the actor)
-	Time time.Time `json:"time" xml:"time"`
-
-	// Attempts is incremented by the actor every time an attempt is done to
-	// process the message.
-	Attempts int `json:"attempts" xml:"attempts"`
+// Processor represents a processor stage in the stream pipeline. It receives
+// messages from a source or another processor stage from upstream and applies
+// some processing and sends the resultant message downstream.
+type Processor interface {
+	// Processor can apply some processing to the message and return the result.
+	// If the returned message has no payload, fusion will assume end of the
+	// pipeline (i.e., a sink) and call the Ack() on the original message.
+	Process(ctx context.Context, msg Message) (*Message, error)
 }
 
-// Backoff represents a backoff strategy to be used by the actor.
-type Backoff interface {
-	// RetryAfter should return the time duration which should be
-	// elapsed before the next queueForRetry.
-	RetryAfter(msg Message) time.Duration
-}
+// ProcessorFunc is an adaptor to allow Go function values as processor
+// implementations.
+type ProcessorFunc func(ctx context.Context, msg Message) (*Message, error)
 
-// Logger implementations provide logging facilities for Actor.
-type Logger interface {
-	Debugf(msg string, args ...interface{})
-	Infof(msg string, args ...interface{})
-	Warnf(msg string, args ...interface{})
-	Errorf(msg string, args ...interface{})
+// Process dispatches the call to the wrapped function value.
+func (pf ProcessorFunc) Process(ctx context.Context, msg Message) (*Message, error) {
+	return pf(ctx, msg)
 }

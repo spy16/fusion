@@ -1,9 +1,16 @@
-package fusion
+package retry
 
 import (
 	"math"
 	"time"
 )
+
+// Backoff represents a backoff strategy to be used by the actor.
+type Backoff interface {
+	// RetryAfter should return the time duration which should be
+	// elapsed before the next queueForRetry.
+	RetryAfter(attempts int) time.Duration
+}
 
 // ExpBackoff provides a simple exponential Backoff strategy for retries.
 func ExpBackoff(base float64, initialTimeout, maxTimeout time.Duration) Backoff {
@@ -32,6 +39,6 @@ func ConstBackoff(interval time.Duration) Backoff {
 // strategy.
 type backoffFunc func(retriesDone int) time.Duration
 
-func (bf backoffFunc) RetryAfter(msg Message) time.Duration {
-	return bf(msg.Attempts)
+func (bf backoffFunc) RetryAfter(attempts int) time.Duration {
+	return bf(attempts)
 }

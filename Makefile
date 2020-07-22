@@ -17,7 +17,7 @@ clean:
 
 test:
 	@echo "Running tests..."
-	@go test -cover ./...
+	@go test -cover ./ ./retry/
 
 test-verbose:
 	@echo "Running tests..."
