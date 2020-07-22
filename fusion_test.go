@@ -24,8 +24,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		src := &fusion.LineStream{}
-		noOp := []fusion.Proc{fusion.NoOpProcessor{}}
-		fu, err := fusion.New(src, fusion.Options{Stages: noOp})
+		fu, err := fusion.New(src, fusion.Options{})
 		assert.NoError(t, err)
 		assert.NotNil(t, fu)
 	})
@@ -36,10 +35,10 @@ func TestFusion_Run(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		counter := int64(0)
-		proc := fusion.ProcFunc(func(ctx context.Context, msg fusion.Message) (*fusion.Message, error) {
+		proc := func(ctx context.Context, msg fusion.Msg) (*fusion.Msg, error) {
 			atomic.AddInt64(&counter, 1)
 			return nil, nil
-		})
+		}
 
 		src := &fusion.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3")}
 		fu, err := fusion.New(src, fusion.Options{Stages: []fusion.Proc{proc}})
@@ -62,16 +61,14 @@ func TestFusion_Run(t *testing.T) {
 	})
 
 	t.Run("ContextCancelled", func(t *testing.T) {
-		proc := &fusion.NoOpProcessor{}
-
-		src := fusion.SourceFunc(func(ctx context.Context) (*fusion.Message, error) {
+		src := fusion.SourceFunc(func(ctx context.Context) (*fusion.Msg, error) {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
-			return &fusion.Message{Ack: func(_ bool, _ error) {}}, nil
+			return &fusion.Msg{Ack: func(_ bool, _ error) {}}, nil
 		})
 
-		fu, err := fusion.New(src, fusion.Options{Stages: []fusion.Proc{proc}})
+		fu, err := fusion.New(src, fusion.Options{})
 		require.NoError(t, err)
 		require.NotNil(t, fu)
 

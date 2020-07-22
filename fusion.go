@@ -21,6 +21,7 @@ func New(source Source, opts Options) (*Fusion, error) {
 		stages:  opts.Stages,
 		logger:  opts.Logger,
 		workers: opts.Workers,
+		drainT:  opts.DrainWithin,
 	}, nil
 }
 
@@ -31,8 +32,16 @@ type Fusion struct {
 	workers int
 	source  Source
 	stages  []Proc
-	stream  <-chan Message
+	stream  <-chan Msg
+	drainT  time.Duration
 }
+
+// Proc represents a processor stage in the stream pipeline. It can apply
+// some logic to message received frm upstream stage and send the results
+// downstream. If the returned message is nil or has no payload, fusion
+// will assume end of the pipeline (i.e., a sink) and call the Ack() on
+// the original message.
+type Proc func(ctx context.Context, msg Msg) (*Msg, error)
 
 // Run spawns all the worker goroutines and blocks until all of them exit.
 // Worker threads exit when context is cancelled or when source closes. It
@@ -72,7 +81,7 @@ func (fu *Fusion) worker(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			fu.drainAll(1 * time.Second)
+			fu.drainAll(fu.drainT)
 			return nil
 
 		case msg, open := <-fu.stream:
@@ -90,14 +99,14 @@ func (fu *Fusion) worker(ctx context.Context) error {
 	}
 }
 
-func (fu *Fusion) process(ctx context.Context, msg Message) error {
+func (fu *Fusion) process(ctx context.Context, msg Msg) error {
 	fu.logger.Debugf("message received: %+v", msg)
 	var err error
-	var res *Message
+	var res *Msg
 
 	res = &msg
-	for _, stage := range fu.stages {
-		res, err = stage.Process(ctx, msg)
+	for _, proc := range fu.stages {
+		res, err = proc(ctx, msg)
 		if err != nil {
 			return err
 		}
@@ -110,33 +119,16 @@ func (fu *Fusion) process(ctx context.Context, msg Message) error {
 }
 
 func (fu *Fusion) drainAll(timeout time.Duration) {
-	select {
-	case <-time.After(timeout):
-		fu.logger.Warnf("could not drain the stream within timeout")
-		return
-	case msg, open := <-fu.stream:
-		if !open {
+	for {
+		select {
+		case <-time.After(timeout):
+			fu.logger.Warnf("could not drain the stream within timeout")
 			return
+		case msg, open := <-fu.stream:
+			if !open {
+				return
+			}
+			msg.Ack(false, nil)
 		}
-		msg.Ack(false, nil)
 	}
-}
-
-// Proc represents a processor stage in the stream pipeline. It receives
-// messages from a source or another processor stage from upstream and
-// applies some processing and sends the resultant message downstream.
-type Proc interface {
-	// Process can apply some processing to the message and return the result.
-	// If the returned message has no payload, fusion will assume end of the
-	// pipeline (i.e., a sink) and call the Ack() on the original message.
-	Process(ctx context.Context, msg Message) (*Message, error)
-}
-
-// ProcFunc is an adaptor to allow ordinary Go function values to be used as
-// Proc implementations.
-type ProcFunc func(ctx context.Context, msg Message) (*Message, error)
-
-// Process dispatches the call to the wrapped function value.
-func (pf ProcFunc) Process(ctx context.Context, msg Message) (*Message, error) {
-	return pf(ctx, msg)
 }

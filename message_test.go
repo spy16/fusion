@@ -9,7 +9,7 @@ import (
 )
 
 func TestMessage_Clone(t *testing.T) {
-	msg := fusion2.Message{
+	msg := fusion2.Msg{
 		Payloads: []fusion2.Payload{
 			{
 				Key: []byte("aello"),

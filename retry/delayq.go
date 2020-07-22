@@ -6,9 +6,19 @@ import (
 	"io"
 	"sync"
 	"time"
+
+	"github.com/spy16/fusion"
 )
 
 var _ DelayQueue = (*InMemQ)(nil)
+
+// Item is maintained by the delay queue and tracks the retries done etc.
+type Item struct {
+	Message     fusion.Msg `json:"message"`
+	Attempts    int        `json:"attempts"`
+	NextAttempt time.Time  `json:"next_attempt"`
+	LastAttempt time.Time  `json:"last_attempt"`
+}
 
 // DelayQueue implementation maintains the messages in a timestamp based order.
 // This is used by retrier for retries.

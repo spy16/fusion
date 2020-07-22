@@ -1,12 +1,13 @@
 package fusion
 
 import (
-	"context"
 	"time"
 )
 
 // Options represents optional configuration values for the fusion instance.
 type Options struct {
+	// Workers represents the number of workers to launch for reading
+	// from the source and invoking stages.
 	Workers int
 
 	// Stages represents the processing stages to be executed for each
@@ -19,8 +20,9 @@ type Options struct {
 	Logger Logger
 
 	// DrainWithin is the timeout to wait to properly drain the channel
-	// and send NACKs for all messages. If not set, stream will not be
-	// drained.
+	// and send NACKs for all messages when fusion instance is exiting
+	// before stream is exhausted due to a context cancellation etc. If
+	// not set, stream will not be drained.
 	DrainWithin time.Duration
 }
 
@@ -48,8 +50,3 @@ func (g noOpLogger) Debugf(msg string, args ...interface{}) {}
 func (g noOpLogger) Infof(msg string, args ...interface{})  {}
 func (g noOpLogger) Warnf(msg string, args ...interface{})  {}
 func (g noOpLogger) Errorf(msg string, args ...interface{}) {}
-
-// NoOpProcessor consumes the messages and simply ignores them.
-type NoOpProcessor struct{}
-
-func (NoOpProcessor) Process(_ context.Context, _ Message) (*Message, error) { return nil, nil }

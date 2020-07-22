@@ -16,13 +16,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	go callOnInterrupt(cancel)
 
-	ls := &fusion.LineStream{From: os.Stdin, Offset: 0, Size: 2}
+	ls := &fusion.LineStream{From: os.Stdin}
 
 	counter := int64(0)
-	proc := fusion.ProcFunc(func(ctx context.Context, msg fusion.Message) (*fusion.Message, error) {
+	proc := func(ctx context.Context, msg fusion.Msg) (*fusion.Msg, error) {
 		atomic.AddInt64(&counter, 1)
 		return nil, nil
-	})
+	}
 
 	opts := fusion.Options{Stages: []fusion.Proc{proc}}
 	fu, err := fusion.New(ls, opts)

@@ -22,17 +22,17 @@ type Source interface {
 	// the returned channel once the data is exhausted. goroutines spawned
 	// by the source must be tied to the given context and exit when context
 	// is cancelled.
-	ConsumeFrom(ctx context.Context) (<-chan Message, error)
+	ConsumeFrom(ctx context.Context) (<-chan Msg, error)
 }
 
 // SourceFunc implements a source using a Go function value.
-type SourceFunc func(ctx context.Context) (*Message, error)
+type SourceFunc func(ctx context.Context) (*Msg, error)
 
 // ConsumeFrom launches a goroutine that continuously calls the wrapped
 // function and writes the return message to the channel. Stops when ctx
 // is cancelled or the function returns an error.
-func (sf SourceFunc) ConsumeFrom(ctx context.Context) (<-chan Message, error) {
-	stream := make(chan Message)
+func (sf SourceFunc) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
+	stream := make(chan Msg)
 	go func() {
 		defer close(stream)
 		for {
@@ -64,22 +64,22 @@ type LineStream struct {
 	// normal streaming states.
 	curOffset int
 	scanner   *bufio.Scanner
-	messages  chan Message
+	messages  chan Msg
 	err       error
 
 	// buffer for maintaining messages that got nAcked.
 	mu     sync.Mutex
-	nAcked []*Message
+	nAcked []*Msg
 }
 
 // ConsumeFrom sets up the source channel and sets up goroutines for writing
 // to it.
-func (rd *LineStream) ConsumeFrom(ctx context.Context) (<-chan Message, error) {
+func (rd *LineStream) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
 	if rd.From == nil {
 		return nil, errors.New("from must be set")
 	}
 	rd.scanner = bufio.NewScanner(rd.From)
-	rd.messages = make(chan Message, rd.Buffer)
+	rd.messages = make(chan Msg, rd.Buffer)
 
 	go func() {
 		rd.stream(ctx)
@@ -117,7 +117,7 @@ func (rd *LineStream) stream(ctx context.Context) {
 	}
 }
 
-func (rd *LineStream) readOne() (*Message, error) {
+func (rd *LineStream) readOne() (*Msg, error) {
 	if msg := rd.pop(); msg != nil {
 		return msg, nil
 	}
@@ -131,7 +131,7 @@ func (rd *LineStream) readOne() (*Message, error) {
 		return nil, err
 	}
 
-	msg := &Message{Payloads: []Payload{p}}
+	msg := &Msg{Payloads: []Payload{p}}
 	msg.Ack = func(success bool, _ error) {
 		if !success {
 			rd.mu.Lock()
@@ -142,7 +142,7 @@ func (rd *LineStream) readOne() (*Message, error) {
 	return msg, nil
 }
 
-func (rd *LineStream) pop() *Message {
+func (rd *LineStream) pop() *Msg {
 	rd.mu.Lock()
 	defer rd.mu.Unlock()
 

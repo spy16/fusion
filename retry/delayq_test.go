@@ -21,8 +21,8 @@ func TestInMemQ_Enqueue(t *testing.T) {
 
 	at := time.Now()
 
-	item1 := Item{Message: fusion2.Message{}, NextAttempt: at}
-	item2 := Item{Message: fusion2.Message{}, NextAttempt: at.Add(1 * time.Hour)}
+	item1 := Item{Message: fusion2.Msg{}, NextAttempt: at}
+	item2 := Item{Message: fusion2.Msg{}, NextAttempt: at.Add(1 * time.Hour)}
 
 	noErr(t, q.Enqueue(item2))
 	noErr(t, q.Enqueue(item1))

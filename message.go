@@ -1,7 +1,7 @@
 package fusion
 
-// Message represents a message with one or more payloads.
-type Message struct {
+// Msg represents a message with one or more payloads.
+type Msg struct {
 	// Payloads can contain one or more message payloads.
 	Payloads []Payload `json:"payloads"`
 
@@ -22,8 +22,8 @@ type Payload struct {
 
 // Clone returns a deep clone of the original message. Ack function will
 // be set to no-op in the clone.
-func (msg *Message) Clone() Message {
-	var clone Message
+func (msg *Msg) Clone() Msg {
+	var clone Msg
 	for _, p := range msg.Payloads {
 		clone.Payloads = append(clone.Payloads, p.Clone())
 	}
