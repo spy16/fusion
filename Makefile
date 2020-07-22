@@ -3,10 +3,6 @@ COMMIT="`git rev-list -1 --abbrev-commit HEAD`"
 
 all: clean fmt test
 
-install:
-	@echo "Installing fusion..."
-	@go install ./cmd/fusion/
-
 fmt:
 	@echo "Formatting..."
 	@goimports -l -w ./

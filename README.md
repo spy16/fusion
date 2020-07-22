@@ -2,4 +2,4 @@
 
 > WIP
 
-Fusion is a tiny stream processing library/tool written in `Go`.
+Fusion is a tiny stream processing library written in `Go`.
