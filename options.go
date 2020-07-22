@@ -9,6 +9,11 @@ import (
 type Options struct {
 	Workers int
 
+	// Stages represents the processing stages to be executed for each
+	// message from the source. If not set, fusion instance simply drains
+	// the source.
+	Stages []Proc
+
 	// Logger to use for the fusion instance. If not set, no-op logger
 	// will be set.
 	Logger Logger

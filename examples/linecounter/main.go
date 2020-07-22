@@ -19,12 +19,12 @@ func main() {
 	ls := &fusion.LineStream{From: os.Stdin}
 
 	counter := int64(0)
-	proc := fusion.ProcessorFunc(func(ctx context.Context, msg fusion.Message) (*fusion.Message, error) {
+	proc := fusion.ProcFunc(func(ctx context.Context, msg fusion.Message) (*fusion.Message, error) {
 		atomic.AddInt64(&counter, 1)
 		return nil, nil
 	})
 
-	fu, err := fusion.New(ls, []fusion.Processor{proc}, fusion.Options{})
+	fu, err := fusion.New(ls, []fusion.Proc{proc}, fusion.Options{})
 	if err != nil {
 		panic(err)
 	}

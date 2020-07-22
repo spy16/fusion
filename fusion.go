@@ -7,17 +7,15 @@ import (
 	"time"
 )
 
-// New returns a new fusion stream processing pipeline instance with given
-// source and processor stages.
-func New(source Source, stages []Processor, opts Options) (*Fusion, error) {
-	opts.setDefaults()
-
+// New returns a new fusion stream processing pipeline  instance with given
+// source and processor stages. If no stage is added, pipeline simply drains
+// the source.
+func New(source Source, stages []Proc, opts Options) (*Fusion, error) {
 	if source == nil {
 		return nil, errors.New("source must not be nil")
-	} else if len(stages) == 0 {
-		return nil, errors.New("at least one processor is needed")
 	}
 
+	opts.setDefaults()
 	return &Fusion{
 		source:  source,
 		stages:  stages,
@@ -32,7 +30,7 @@ type Fusion struct {
 	logger  Logger
 	workers int
 	source  Source
-	stages  []Processor
+	stages  []Proc
 	stream  <-chan Message
 }
 
@@ -124,21 +122,21 @@ func (fu *Fusion) drainAll(timeout time.Duration) {
 	}
 }
 
-// Processor represents a processor stage in the stream pipeline. It receives
-// messages from a source or another processor stage from upstream and applies
-// some processing and sends the resultant message downstream.
-type Processor interface {
-	// Processor can apply some processing to the message and return the result.
+// Proc represents a processor stage in the stream pipeline. It receives
+// messages from a source or another processor stage from upstream and
+// applies some processing and sends the resultant message downstream.
+type Proc interface {
+	// Process can apply some processing to the message and return the result.
 	// If the returned message has no payload, fusion will assume end of the
 	// pipeline (i.e., a sink) and call the Ack() on the original message.
 	Process(ctx context.Context, msg Message) (*Message, error)
 }
 
-// ProcessorFunc is an adaptor to allow Go function values as processor
-// implementations.
-type ProcessorFunc func(ctx context.Context, msg Message) (*Message, error)
+// ProcFunc is an adaptor to allow ordinary Go function values to be used as
+// Proc implementations.
+type ProcFunc func(ctx context.Context, msg Message) (*Message, error)
 
 // Process dispatches the call to the wrapped function value.
-func (pf ProcessorFunc) Process(ctx context.Context, msg Message) (*Message, error) {
+func (pf ProcFunc) Process(ctx context.Context, msg Message) (*Message, error) {
 	return pf(ctx, msg)
 }

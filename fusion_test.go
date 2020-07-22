@@ -10,29 +10,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	fusion2 "github.com/spy16/fusion"
+	"github.com/spy16/fusion"
 )
 
 func TestNew(t *testing.T) {
 	t.Parallel()
 
 	t.Run("NilSource", func(t *testing.T) {
-		fu, err := fusion2.New(nil, nil, fusion2.Options{})
-		assert.Error(t, err)
-		assert.Nil(t, fu)
-	})
-
-	t.Run("NoProcessor", func(t *testing.T) {
-		src := &fusion2.LineStream{}
-		fu, err := fusion2.New(src, nil, fusion2.Options{})
+		fu, err := fusion.New(nil, nil, fusion.Options{})
 		assert.Error(t, err)
 		assert.Nil(t, fu)
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		src := &fusion2.LineStream{}
-		noOp := []fusion2.Processor{fusion2.NoOpProcessor{}}
-		fu, err := fusion2.New(src, noOp, fusion2.Options{})
+		src := &fusion.LineStream{}
+		noOp := []fusion.Proc{fusion.NoOpProcessor{}}
+		fu, err := fusion.New(src, noOp, fusion.Options{})
 		assert.NoError(t, err)
 		assert.NotNil(t, fu)
 	})
@@ -43,13 +36,13 @@ func TestFusion_Run(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		counter := int64(0)
-		proc := fusion2.ProcessorFunc(func(ctx context.Context, msg fusion2.Message) (*fusion2.Message, error) {
+		proc := fusion.ProcFunc(func(ctx context.Context, msg fusion.Message) (*fusion.Message, error) {
 			atomic.AddInt64(&counter, 1)
 			return nil, nil
 		})
 
-		src := &fusion2.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3")}
-		fu, err := fusion2.New(src, []fusion2.Processor{proc}, fusion2.Options{})
+		src := &fusion.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3")}
+		fu, err := fusion.New(src, []fusion.Proc{proc}, fusion.Options{})
 		require.NoError(t, err)
 		require.NotNil(t, fu)
 
@@ -69,16 +62,16 @@ func TestFusion_Run(t *testing.T) {
 	})
 
 	t.Run("ContextCancelled", func(t *testing.T) {
-		proc := &fusion2.NoOpProcessor{}
+		proc := &fusion.NoOpProcessor{}
 
-		src := fusion2.SourceFunc(func(ctx context.Context) (*fusion2.Message, error) {
+		src := fusion.SourceFunc(func(ctx context.Context) (*fusion.Message, error) {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
-			return &fusion2.Message{Ack: func(_ bool, _ error) {}}, nil
+			return &fusion.Message{Ack: func(_ bool, _ error) {}}, nil
 		})
 
-		fu, err := fusion2.New(src, []fusion2.Processor{proc}, fusion2.Options{})
+		fu, err := fusion.New(src, []fusion.Proc{proc}, fusion.Options{})
 		require.NoError(t, err)
 		require.NotNil(t, fu)
 
