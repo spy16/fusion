@@ -10,7 +10,7 @@ import (
 // New returns a new fusion stream processing pipeline  instance with given
 // source and processor stages. If no stage is added, pipeline simply drains
 // the source.
-func New(source Source, stages []Proc, opts Options) (*Fusion, error) {
+func New(source Source, opts Options) (*Fusion, error) {
 	if source == nil {
 		return nil, errors.New("source must not be nil")
 	}
@@ -18,7 +18,7 @@ func New(source Source, stages []Proc, opts Options) (*Fusion, error) {
 	opts.setDefaults()
 	return &Fusion{
 		source:  source,
-		stages:  stages,
+		stages:  opts.Stages,
 		logger:  opts.Logger,
 		workers: opts.Workers,
 	}, nil
