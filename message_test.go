@@ -5,23 +5,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	fusion2 "github.com/spy16/fusion"
+	"github.com/spy16/fusion"
 )
 
 func TestMessage_Clone(t *testing.T) {
-	msg := fusion2.Msg{
-		Payloads: []fusion2.Payload{
-			{
-				Key: []byte("aello"),
-				Val: []byte("world"),
-			},
-		},
+	msg := fusion.Msg{
+		Key: []byte("aello"),
+		Val: []byte("world"),
 	}
 	clone := msg.Clone()
-	assert.Equal(t, msg.Payloads, clone.Payloads)
+
+	assert.Equal(t, msg.Key, clone.Key)
+	assert.Equal(t, msg.Val, clone.Val)
 
 	// verify deep clone.
-	msg.Payloads[0].Key[0] = 'h'
-	assert.Equal(t, msg.Payloads[0].Key, []byte("hello"))
-	assert.Equal(t, clone.Payloads[0].Key, []byte("aello"))
+	msg.Key[0] = 'h'
+	assert.Equal(t, msg.Key, []byte("hello"))
+	assert.Equal(t, clone.Key, []byte("aello"))
 }

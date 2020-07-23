@@ -1,7 +1,7 @@
 package retry
 
 // TODO(spy16): Implement Retrier.
-// var _ fusion.Proc = (*Retrier)(nil)
+// var _ fusion.proc = (*Retrier)(nil)
 //
 // // Retrier implements a fusion processor stage that provides automatic
 // // retries.

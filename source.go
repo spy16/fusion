@@ -124,12 +124,11 @@ func (rd *LineStream) readOne() (*Msg, error) {
 		return nil, io.EOF
 	}
 
-	p, err := rd.readLine()
+	msg, err := rd.readLine()
 	if err != nil {
 		return nil, err
 	}
 
-	msg := &Msg{Payloads: []Payload{p}}
 	msg.Ack = func(success bool, _ error) {
 		if !success {
 			rd.mu.Lock()
@@ -153,19 +152,20 @@ func (rd *LineStream) pop() *Msg {
 	return msg
 }
 
-func (rd *LineStream) readLine() (Payload, error) {
-	var payload Payload
+func (rd *LineStream) readLine() (*Msg, error) {
 	if !rd.scanner.Scan() {
 		if rd.scanner.Err() == nil {
-			return payload, io.EOF
+			return nil, io.EOF
 		}
-		return payload, rd.scanner.Err()
+		return nil, rd.scanner.Err()
 	}
 	rd.curOffset++
 
-	payload.Key = make([]byte, 8, 8)
-	binary.LittleEndian.PutUint64(payload.Key[:], uint64(rd.curOffset+rd.Offset-1))
+	var key [8]byte
+	binary.LittleEndian.PutUint64(key[:], uint64(rd.curOffset+rd.Offset-1))
 
-	payload.Val = []byte(rd.scanner.Text())
-	return payload, nil
+	return &Msg{
+		Key: key[:],
+		Val: rd.scanner.Bytes(),
+	}, nil
 }

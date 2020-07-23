@@ -35,13 +35,13 @@ func TestFusion_Run(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		counter := int64(0)
-		proc := func(ctx context.Context, msg fusion.Msg) (*fusion.Msg, error) {
+		proc := func(ctx context.Context, msg fusion.Msg) error {
 			atomic.AddInt64(&counter, 1)
-			return nil, nil
+			return nil
 		}
 
 		src := &fusion.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3")}
-		fu, err := fusion.New(src, fusion.Options{Stages: []fusion.Proc{proc}})
+		fu, err := fusion.New(src, fusion.Options{Proc: proc})
 		require.NoError(t, err)
 		require.NotNil(t, fu)
 

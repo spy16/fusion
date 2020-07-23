@@ -17,31 +17,26 @@ func New(source Source, opts Options) (*Fusion, error) {
 
 	opts.setDefaults()
 	return &Fusion{
-		source:  source,
-		stages:  opts.Stages,
-		logger:  opts.Logger,
-		workers: opts.Workers,
-		drainT:  opts.DrainWithin,
+		source:   source,
+		proc:     opts.Proc,
+		workers:  opts.Workers,
+		drainT:   opts.DrainWithin,
+		logger:   opts.Logger,
+		onFinish: opts.OnFinish,
 	}, nil
 }
 
 // Fusion represents a fusion streaming pipeline. A fusion instance has a
 // stream source and one or more processing stages.
 type Fusion struct {
-	logger  Logger
-	workers int
-	source  Source
-	stages  []Proc
-	stream  <-chan Msg
-	drainT  time.Duration
+	logger   Logger
+	source   Source
+	stream   <-chan Msg
+	proc     Proc
+	drainT   time.Duration
+	workers  int
+	onFinish func(Msg, error)
 }
-
-// Proc represents a processor stage in the stream pipeline. It can apply
-// some logic to message received frm upstream stage and send the results
-// downstream. If the returned message is nil or has no payload, fusion
-// will assume end of the pipeline (i.e., a sink) and call the Ack() on
-// the original message.
-type Proc func(ctx context.Context, msg Msg) (*Msg, error)
 
 // Run spawns all the worker goroutines and blocks until all of them exit.
 // Worker threads exit when context is cancelled or when source closes. It
@@ -88,34 +83,32 @@ func (fu *Fusion) worker(ctx context.Context) error {
 			if !open {
 				return nil
 			}
-			if err := fu.process(ctx, msg); err != nil {
-				fu.logger.Warnf("failed to process, will NACK: %v", err)
-				msg.Ack(false, err)
-			} else {
-				fu.logger.Infof("processed successfully, will ACK")
-				msg.Ack(true, nil)
-			}
+			fu.process(ctx, msg)
 		}
 	}
 }
 
-func (fu *Fusion) process(ctx context.Context, msg Msg) error {
+func (fu *Fusion) process(ctx context.Context, msg Msg) {
 	fu.logger.Debugf("message received: %+v", msg)
-	var err error
-	var res *Msg
 
-	res = &msg
-	for _, proc := range fu.stages {
-		res, err = proc(ctx, msg)
-		if err != nil {
-			return err
+	err := fu.proc(ctx, msg)
+	if err != nil {
+		switch err {
+		case Skip, Fail:
+			fu.logger.Infof("proc returned Skip/Fail, will ACK")
+			msg.Ack(true, err)
+			fu.onFinish(msg, err)
+
+		default:
+			fu.logger.Warnf("proc returned unknown err, will NACK: %v", err)
+			msg.Ack(false, err)
 		}
-		if res == nil {
-			// message was filtered out. stop here.
-			return nil
-		}
+		return
 	}
-	return nil
+
+	fu.logger.Infof("proc finished successfully, will ACK: %v", err)
+	fu.onFinish(msg, nil)
+	msg.Ack(true, nil)
 }
 
 func (fu *Fusion) drainAll(timeout time.Duration) {
@@ -124,6 +117,7 @@ func (fu *Fusion) drainAll(timeout time.Duration) {
 		case <-time.After(timeout):
 			fu.logger.Warnf("could not drain the stream within timeout")
 			return
+
 		case msg, open := <-fu.stream:
 			if !open {
 				return
