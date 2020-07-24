@@ -41,7 +41,7 @@ func TestFusion_Run(t *testing.T) {
 		}
 
 		src := &fusion.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3")}
-		fu, err := fusion.New(src, fusion.Options{Proc: proc})
+		fu, err := fusion.New(src, fusion.Options{Processor: fusion.Proc(proc)})
 		require.NoError(t, err)
 		require.NotNil(t, fu)
 

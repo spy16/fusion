@@ -1,4 +1,4 @@
-package retry
+package retrier
 
 import (
 	"context"

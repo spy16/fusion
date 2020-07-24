@@ -34,6 +34,7 @@ func (sf SourceFunc) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
 	stream := make(chan Msg)
 	go func() {
 		defer close(stream)
+
 		for {
 			msg, err := sf(ctx)
 			if err != nil {
@@ -75,14 +76,12 @@ type LineStream struct {
 // to it.
 func (rd *LineStream) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
 	if rd.From == nil {
-		return nil, errors.New("from must be set")
+		return nil, errors.New("field From must be set")
 	}
 	rd.scanner = bufio.NewScanner(rd.From)
 	rd.messages = make(chan Msg, rd.Buffer)
 
-	go func() {
-		rd.stream(ctx)
-	}()
+	go rd.stream(ctx)
 	return rd.messages, nil
 }
 

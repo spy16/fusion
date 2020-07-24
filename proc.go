@@ -12,17 +12,23 @@ var (
 
 	// Fail can be returned from proc implementations to signal that the
 	// message should be marked as failed but should be acked. This can
-	// be useful when Proc knows the message can never successfully be
+	// be useful when proc knows the message can never successfully be
 	// processed.
 	Fail = errors.New("fail message")
 )
 
-// Proc represents a processor in the stream pipeline. Proc can return
-// nil or Skip or Fail to indicate a terminal state in which case the
-// msg will be acknowledged. If proc returns any other error, it will
-// be nAcked.
-type Proc func(ctx context.Context, msg Msg) error
-
-func noOpProc(ctx context.Context, msg Msg) error {
-	return Skip
+// Processor represents a processor in the stream pipeline. Processor can
+// return nil or Skip or Fail to indicate a terminal state in which case
+// the msg will be acknowledged. If processor returns any other error, it
+// will be nAcked.
+type Processor interface {
+	Process(ctx context.Context, msg Msg) error
 }
+
+// Proc is a processor implementation using Go function values.
+type Proc func(context.Context, Msg) error
+
+// Process simply dispatches the call to the wrapped function value.
+func (proc Proc) Process(ctx context.Context, msg Msg) error { return proc(ctx, msg) }
+
+func noOpProcessor(_ context.Context, _ Msg) error { return Skip }

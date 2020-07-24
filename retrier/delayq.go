@@ -1,4 +1,4 @@
-package retry
+package retrier
 
 import (
 	"context"
@@ -30,7 +30,7 @@ type DelayQueue interface {
 	// Dequeue should read one message that has an expired timestamp and call
 	// readFn with it. Success/failure from readFn must be considered as ACK
 	// or nACK respectively. When message is not available, Dequeue should not
-	// block but return ErrNoMessage. Queue can return EOF to indicate that the
+	// block but return ErrNoMessage. queue can return EOF to indicate that the
 	// queue is fully drained. Other errors from the queue will be logged and
 	// ignored.
 	Dequeue(ctx context.Context, readFn ReadFn) error

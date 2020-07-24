@@ -7,35 +7,37 @@ import (
 	"time"
 )
 
-// New returns a new fusion stream processing pipeline  instance with given
-// source and processor stages. If no stage is added, pipeline simply drains
-// the source.
-func New(source Source, opts Options) (*Fusion, error) {
+// New returns a new fusion stream processing pipeline configured using the
+// given options.
+func New(source Source, opts ...Options) (*Fusion, error) {
 	if source == nil {
 		return nil, errors.New("source must not be nil")
 	}
 
-	opts.setDefaults()
+	opts = append(opts, Options{})
+	opt := opts[0]
+
+	opt.setDefaults()
 	return &Fusion{
-		source:   source,
-		proc:     opts.Proc,
-		workers:  opts.Workers,
-		drainT:   opts.DrainWithin,
-		logger:   opts.Logger,
-		onFinish: opts.OnFinish,
+		source:    source,
+		workers:   opt.Workers,
+		drainT:    opt.DrainWithin,
+		logger:    opt.Logger,
+		onFinish:  opt.OnFinish,
+		processor: opt.Processor,
 	}, nil
 }
 
 // Fusion represents a fusion streaming pipeline. A fusion instance has a
 // stream source and one or more processing stages.
 type Fusion struct {
-	logger   Logger
-	source   Source
-	stream   <-chan Msg
-	proc     Proc
-	drainT   time.Duration
-	workers  int
-	onFinish func(Msg, error)
+	logger    Logger
+	source    Source
+	stream    <-chan Msg
+	workers   int
+	drainT    time.Duration
+	onFinish  func(Msg, error)
+	processor Processor
 }
 
 // Run spawns all the worker goroutines and blocks until all of them exit.
@@ -76,7 +78,7 @@ func (fu *Fusion) worker(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			fu.drainAll(fu.drainT)
+			fu.drainAll()
 			return nil
 
 		case msg, open := <-fu.stream:
@@ -91,7 +93,7 @@ func (fu *Fusion) worker(ctx context.Context) error {
 func (fu *Fusion) process(ctx context.Context, msg Msg) {
 	fu.logger.Debugf("message received: %+v", msg)
 
-	err := fu.proc(ctx, msg)
+	err := fu.processor.Process(ctx, msg)
 	if err != nil {
 		switch err {
 		case Skip, Fail:
@@ -111,10 +113,15 @@ func (fu *Fusion) process(ctx context.Context, msg Msg) {
 	msg.Ack(true, nil)
 }
 
-func (fu *Fusion) drainAll(timeout time.Duration) {
+func (fu *Fusion) drainAll() {
+	if fu.drainT == 0 {
+		fu.logger.Infof("no drain timeout set, not draining the channel")
+		return
+	}
+
 	for {
 		select {
-		case <-time.After(timeout):
+		case <-time.After(fu.drainT):
 			fu.logger.Warnf("could not drain the stream within timeout")
 			return
 

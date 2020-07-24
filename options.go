@@ -2,16 +2,24 @@ package fusion
 
 import "time"
 
+// Logger implementations provide logging facilities for Actor.
+type Logger interface {
+	Debugf(msg string, args ...interface{})
+	Infof(msg string, args ...interface{})
+	Warnf(msg string, args ...interface{})
+	Errorf(msg string, args ...interface{})
+}
+
 // Options represents optional configuration values for the fusion instance.
 type Options struct {
 	// workers represents the number of workers to launch for reading
 	// from the source and invoking stages.
 	Workers int
 
-	// Proc represents the processor to be used by the fusion pipeline to
-	// process the incoming messages. If not set, a default no-op will be
-	// used.
-	Proc Proc
+	// Processor can be set to apply some processing to each message received
+	// from the source. If not set, a no-op will be used which simply returns
+	// Skip for every message.
+	Processor Processor
 
 	// OnFinish when set, will be called when a proc successfully processes
 	// a message or fails by returning Fail or skips by returning Skip.
@@ -37,21 +45,13 @@ func (opts *Options) setDefaults() {
 		opts.Logger = noOpLogger{}
 	}
 
-	if opts.Proc == nil {
-		opts.Proc = noOpProc
+	if opts.Processor == nil {
+		opts.Processor = Proc(noOpProcessor)
 	}
 
 	if opts.OnFinish == nil {
 		opts.OnFinish = func(_ Msg, _ error) {}
 	}
-}
-
-// Logger implementations provide logging facilities for Actor.
-type Logger interface {
-	Debugf(msg string, args ...interface{})
-	Infof(msg string, args ...interface{})
-	Warnf(msg string, args ...interface{})
-	Errorf(msg string, args ...interface{})
 }
 
 type noOpLogger struct{}
