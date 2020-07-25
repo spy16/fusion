@@ -58,6 +58,7 @@ func TestFusion_Run(t *testing.T) {
 		require.True(t, done)
 
 		assert.Equal(t, int64(3), counter)
+		assert.NoError(t, src.Err())
 	})
 
 	t.Run("ContextCancelled", func(t *testing.T) {

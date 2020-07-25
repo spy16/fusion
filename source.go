@@ -58,14 +58,15 @@ func (sf SourceFunc) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
 type LineStream struct {
 	From   io.Reader // From is the reader to use.
 	Offset int       // Offset to start at.
-	Size   int       // Number of lines to stream.
+	Size   int       // Number of lines (from offset) to stream.
 	Buffer int       // Stream channel buffer size.
 
 	// normal streaming states.
-	curOffset int
-	scanner   *bufio.Scanner
-	messages  chan Msg
-	err       error
+	curOffset  int
+	eofReached bool
+	reader     *bufio.Reader
+	messages   chan Msg
+	err        error
 
 	// buffer for maintaining messages that got nAcked.
 	mu     sync.Mutex
@@ -78,7 +79,8 @@ func (rd *LineStream) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
 	if rd.From == nil {
 		return nil, errors.New("field From must be set")
 	}
-	rd.scanner = bufio.NewScanner(rd.From)
+	rd.reader = bufio.NewReader(rd.From)
+	// reader.scanner = bufio.NewScanner(reader.From)
 	rd.messages = make(chan Msg, rd.Buffer)
 
 	go rd.stream(ctx)
@@ -117,6 +119,8 @@ func (rd *LineStream) stream(ctx context.Context) {
 func (rd *LineStream) readOne() (*Msg, error) {
 	if msg := rd.pop(); msg != nil {
 		return msg, nil
+	} else if rd.eofReached {
+		return nil, io.EOF
 	}
 
 	if rd.Size > 0 && rd.curOffset >= rd.Size+rd.Offset {
@@ -152,11 +156,14 @@ func (rd *LineStream) pop() *Msg {
 }
 
 func (rd *LineStream) readLine() (*Msg, error) {
-	if !rd.scanner.Scan() {
-		if rd.scanner.Err() == nil {
-			return nil, io.EOF
+	line, err := rd.reader.ReadBytes('\n')
+	if err != nil && err != io.EOF {
+		return nil, err
+	} else if err == io.EOF {
+		if string(line) == "" {
+			return nil, err
 		}
-		return nil, rd.scanner.Err()
+		rd.eofReached = true
 	}
 	rd.curOffset++
 
@@ -165,6 +172,6 @@ func (rd *LineStream) readLine() (*Msg, error) {
 
 	return &Msg{
 		Key: key[:],
-		Val: rd.scanner.Bytes(),
+		Val: line,
 	}, nil
 }
