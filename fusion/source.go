@@ -9,21 +9,6 @@ import (
 	"sync"
 )
 
-var (
-	_ Source = (SourceFunc)(nil)
-	_ Source = (*LineStream)(nil)
-)
-
-// Source implementation is the source of data in fusion pipeline.
-type Source interface {
-	// Out should return a channel to which the source independently writes
-	// the data stream to. It is the responsibility of this Source to close
-	// the returned channel once the data is exhausted. goroutines spawned
-	// by the source must be tied to the given context and exit when context
-	// is cancelled.
-	Out(ctx context.Context) (<-chan Msg, error)
-}
-
 // SourceFunc implements a source using a Go function value. Wrapped function
 // value is repeatedly called until it returns error.
 type SourceFunc func(ctx context.Context) (*Msg, error)

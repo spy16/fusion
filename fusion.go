@@ -40,14 +40,14 @@ type Fusion struct {
 	processor Processor
 }
 
-// Run spawns all the worker goroutines and blocks until all of them exit.
+// Spawn spawns all the worker goroutines and blocks until all of them exit.
 // Worker threads exit when context is cancelled or when source closes. It
 // returns any error that was returned from the source.
 func (fu *Fusion) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	stream, err := fu.source.ConsumeFrom(ctx)
+	stream, err := fu.source.Out(ctx)
 	if err != nil {
 		return err
 	}

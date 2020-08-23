@@ -25,7 +25,6 @@ func main() {
 	}
 
 	fu, err := fusion.New(ls, fusion.Options{Processor: fusion.Proc(proc)})
-
 	if err != nil {
 		panic(err)
 	}

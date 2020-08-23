@@ -17,8 +17,8 @@ var (
 	Fail = errors.New("fail message")
 )
 
-// Processor represents a processor in the stream pipeline. Processor can
-// return nil or Skip or Fail to indicate a terminal state in which case
+// Processor represents a processor inCh the stream pipeline. Processor can
+// return nil or Skip or Fail to indicate a terminal state inCh which case
 // the msg will be acknowledged. If processor returns any other error, it
 // will be nAcked.
 type Processor interface {

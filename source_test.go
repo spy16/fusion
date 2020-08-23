@@ -23,7 +23,7 @@ func TestSourceFunc_ConsumeFrom(t *testing.T) {
 		atomic.AddInt64(&n, -1)
 		return &fusion.Msg{}, nil
 	})
-	messages, err := sf.ConsumeFrom(context.Background())
+	messages, err := sf.Out(context.Background())
 	require.NoError(t, err)
 
 	count := countStream(messages)
@@ -33,7 +33,7 @@ func TestSourceFunc_ConsumeFrom(t *testing.T) {
 func TestLineStream_ConsumeFrom(t *testing.T) {
 	t.Run("BeginningToEOF", func(t *testing.T) {
 		ls := &fusion.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3\n")}
-		messages, err := ls.ConsumeFrom(context.Background())
+		messages, err := ls.Out(context.Background())
 		require.NoError(t, err)
 		count := countStream(messages)
 		assert.Equal(t, 3, count)
@@ -44,7 +44,7 @@ func TestLineStream_ConsumeFrom(t *testing.T) {
 			From:   strings.NewReader("msg1\nmsg2\nmsg3\n"),
 			Offset: 1,
 		}
-		messages, err := ls.ConsumeFrom(context.Background())
+		messages, err := ls.Out(context.Background())
 		require.NoError(t, err)
 		count := countStream(messages)
 		assert.Equal(t, 2, count)
@@ -56,7 +56,7 @@ func TestLineStream_ConsumeFrom(t *testing.T) {
 			Offset: 1,
 			Size:   1,
 		}
-		messages, err := ls.ConsumeFrom(context.Background())
+		messages, err := ls.Out(context.Background())
 		require.NoError(t, err)
 		count := countStream(messages)
 		assert.Equal(t, 1, count)
