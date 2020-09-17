@@ -9,28 +9,24 @@ import (
 	"sync"
 )
 
-var (
-	_ Source = (SourceFunc)(nil)
-	_ Source = (*LineStream)(nil)
-)
+var _ Stream = (*LineStream)(nil)
 
-// Source implementation is the source of data in a pipeline.
-type Source interface {
-	// ConsumeFrom should return a channel to which it independently writes
-	// the data stream to. It is the responsibility of this Source to close
-	// the returned channel once the data is exhausted. goroutines spawned
-	// by the source must be tied to the given context and exit when context
-	// is cancelled.
-	ConsumeFrom(ctx context.Context) (<-chan Msg, error)
+// Stream implementation is the source of data in a pipeline.
+type Stream interface {
+	// Out should return a channel to which it independently writes the data
+	// stream to. Stream is responsible for closing the returned channel once
+	// the data is exhausted. goroutines spawned by the source must be tied
+	// to the given context and exit when context is cancelled.
+	Out(ctx context.Context) (<-chan Msg, error)
 }
 
-// SourceFunc implements a source using a Go function value.
-type SourceFunc func(ctx context.Context) (*Msg, error)
+// StreamFn implements a source using a Go function value.
+type StreamFn func(ctx context.Context) (*Msg, error)
 
-// ConsumeFrom launches a goroutine that continuously calls the wrapped
-// function and writes the return message to the channel. Stops when ctx
-// is cancelled or the function returns an error.
-func (sf SourceFunc) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
+// Out launches a goroutine that continuously calls the wrapped function and
+// writes the return message to the channel. Stops when ctx is cancelled or
+// the function returns an error.
+func (sf StreamFn) Out(ctx context.Context) (<-chan Msg, error) {
 	stream := make(chan Msg)
 	go func() {
 		defer close(stream)
@@ -73,14 +69,12 @@ type LineStream struct {
 	nAcked []*Msg
 }
 
-// ConsumeFrom sets up the source channel and sets up goroutines for writing
-// to it.
-func (rd *LineStream) ConsumeFrom(ctx context.Context) (<-chan Msg, error) {
+// Out sets up the source channel and sets up goroutines for writing to it.
+func (rd *LineStream) Out(ctx context.Context) (<-chan Msg, error) {
 	if rd.From == nil {
 		return nil, errors.New("field From must be set")
 	}
 	rd.reader = bufio.NewReader(rd.From)
-	// reader.scanner = bufio.NewScanner(reader.From)
 	rd.messages = make(chan Msg, rd.Buffer)
 
 	go rd.stream(ctx)
@@ -132,12 +126,14 @@ func (rd *LineStream) readOne() (*Msg, error) {
 		return nil, err
 	}
 
-	msg.Ack = func(success bool, _ error) {
-		if !success {
-			rd.mu.Lock()
-			defer rd.mu.Unlock()
-			rd.nAcked = append(rd.nAcked, msg)
+	msg.Ack = func(err error) {
+		if err == nil || err == Fail || err == Skip {
+			return
 		}
+
+		rd.mu.Lock()
+		defer rd.mu.Unlock()
+		rd.nAcked = append(rd.nAcked, msg)
 	}
 	return msg, nil
 }

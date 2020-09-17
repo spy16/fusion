@@ -11,59 +11,61 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/spy16/fusion"
+	fusion2 "github.com/spy16/fusion"
 )
 
-func TestSourceFunc_ConsumeFrom(t *testing.T) {
+func TestStreamFn_Out(t *testing.T) {
 	n := int64(2)
-	sf := fusion.SourceFunc(func(ctx context.Context) (*fusion.Msg, error) {
+	sf := fusion2.StreamFn(func(ctx context.Context) (*fusion2.Msg, error) {
 		if n <= 0 {
 			return nil, io.EOF
 		}
 		atomic.AddInt64(&n, -1)
-		return &fusion.Msg{}, nil
+		return &fusion2.Msg{}, nil
 	})
-	messages, err := sf.ConsumeFrom(context.Background())
+	messages, err := sf.Out(context.Background())
 	require.NoError(t, err)
 
 	count := countStream(messages)
 	assert.Equal(t, 2, count)
 }
 
-func TestLineStream_ConsumeFrom(t *testing.T) {
+func TestLineStream_Out(t *testing.T) {
+	t.Parallel()
+
 	t.Run("BeginningToEOF", func(t *testing.T) {
-		ls := &fusion.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3\n")}
-		messages, err := ls.ConsumeFrom(context.Background())
+		ls := &fusion2.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3\n")}
+		messages, err := ls.Out(context.Background())
 		require.NoError(t, err)
 		count := countStream(messages)
 		assert.Equal(t, 3, count)
 	})
 
 	t.Run("FromOffset", func(t *testing.T) {
-		ls := &fusion.LineStream{
+		ls := &fusion2.LineStream{
 			From:   strings.NewReader("msg1\nmsg2\nmsg3\n"),
 			Offset: 1,
 		}
-		messages, err := ls.ConsumeFrom(context.Background())
+		messages, err := ls.Out(context.Background())
 		require.NoError(t, err)
 		count := countStream(messages)
 		assert.Equal(t, 2, count)
 	})
 
 	t.Run("FromOffsetWithSize", func(t *testing.T) {
-		ls := &fusion.LineStream{
+		ls := &fusion2.LineStream{
 			From:   strings.NewReader("msg1\nmsg2\nmsg3\n"),
 			Offset: 1,
 			Size:   1,
 		}
-		messages, err := ls.ConsumeFrom(context.Background())
+		messages, err := ls.Out(context.Background())
 		require.NoError(t, err)
 		count := countStream(messages)
 		assert.Equal(t, 1, count)
 	})
 }
 
-func countStream(s <-chan fusion.Msg) int {
+func countStream(s <-chan fusion2.Msg) int {
 	upperBound := time.NewTimer(1 * time.Second)
 	defer upperBound.Stop()
 

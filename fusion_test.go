@@ -10,23 +10,28 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/spy16/fusion"
+	fusion2 "github.com/spy16/fusion"
 )
 
 func TestNew(t *testing.T) {
 	t.Parallel()
 
-	t.Run("NilSource", func(t *testing.T) {
-		fu, err := fusion.New(nil, fusion.Options{})
+	t.Run("Nil Stream", func(t *testing.T) {
+		fu := fusion2.Runner{
+			Stream: nil,
+		}
+		err := fu.Run(context.Background())
 		assert.Error(t, err)
-		assert.Nil(t, fu)
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		src := &fusion.LineStream{}
-		fu, err := fusion.New(src, fusion.Options{})
+		fu := fusion2.Runner{
+			Stream: &fusion2.LineStream{
+				From: strings.NewReader("hello\n"),
+			},
+		}
+		err := fu.Run(context.Background())
 		assert.NoError(t, err)
-		assert.NotNil(t, fu)
 	})
 }
 
@@ -35,18 +40,22 @@ func TestFusion_Run(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		counter := int64(0)
-		proc := func(ctx context.Context, msg fusion.Msg) error {
-			atomic.AddInt64(&counter, 1)
-			return nil
-		}
+		lineStream := &fusion2.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3")}
 
-		src := &fusion.LineStream{From: strings.NewReader("msg1\nmsg2\nmsg3")}
-		fu, err := fusion.New(src, fusion.Options{Processor: fusion.Proc(proc)})
-		require.NoError(t, err)
-		require.NotNil(t, fu)
+		fu := fusion2.Runner{
+			Stream: lineStream,
+			Proc: &fusion2.Fn{
+				Func: func(ctx context.Context, msg fusion2.Msg) error {
+					atomic.AddInt64(&counter, 1)
+					return nil
+				},
+			},
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
+
+		require.NoError(t, fu.Run(ctx))
 
 		done := false
 		go func() {
@@ -58,23 +67,25 @@ func TestFusion_Run(t *testing.T) {
 		require.True(t, done)
 
 		assert.Equal(t, int64(3), counter)
-		assert.NoError(t, src.Err())
+		assert.NoError(t, lineStream.Err())
 	})
 
 	t.Run("ContextCancelled", func(t *testing.T) {
-		src := fusion.SourceFunc(func(ctx context.Context) (*fusion.Msg, error) {
+		src := fusion2.StreamFn(func(ctx context.Context) (*fusion2.Msg, error) {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
-			return &fusion.Msg{Ack: func(_ bool, _ error) {}}, nil
+			return &fusion2.Msg{Ack: func(_ error) {}}, nil
 		})
 
-		fu, err := fusion.New(src, fusion.Options{})
-		require.NoError(t, err)
-		require.NotNil(t, fu)
+		fu := &fusion2.Runner{
+			Stream: src,
+		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
+
+		require.NoError(t, fu.Run(ctx))
 
 		done := false
 		go func() {

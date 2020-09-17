@@ -5,11 +5,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/spy16/fusion"
+	fusion2 "github.com/spy16/fusion"
 )
 
 func TestMessage_Clone(t *testing.T) {
-	msg := fusion.Msg{
+	msg := fusion2.Msg{
 		Key: []byte("aello"),
 		Val: []byte("world"),
 	}

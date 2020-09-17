@@ -8,20 +8,17 @@ type Msg struct {
 
 	// Ack will be used to signal an ACK/nACK when message has passed
 	// through the pipeline. A no-op value must be set when there is
-	// no need for ack. Ack must be idempotent. If acknowledge fails,
-	// source is free to re-send the message through normal means.
-	// Cause can be set when success=false to send the information
-	// about the reason for failure.
-	Ack func(success bool, cause error)
+	// no need for ack. Ack must be idempotent. If message was handled
+	// successfully, then Ack will be called without error.
+	Ack func(err error)
 }
 
 // Clone returns a clone of the original message. Ack function will
-// be set to no-op in the clone. If the value implements Cloner, it
-// will be used to clone the value.
+// be set to no-op in the clone.
 func (msg *Msg) Clone() Msg {
 	var clone Msg
 	clone.Key = append([]byte(nil), msg.Key...)
 	clone.Val = append([]byte(nil), msg.Val...)
-	clone.Ack = func(_ bool, _ error) {}
+	clone.Ack = func(_ error) {}
 	return clone
 }
