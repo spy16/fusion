@@ -1,5 +1,7 @@
 # 💥 Fusion
 
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/spy16/fusion)](https://pkg.go.dev/github.com/spy16/fusion)(https://godoc.org/github.com/spy16/fusion) [![Go Report Card](https://goreportcard.com/badge/github.com/spy16/fusion)](https://goreportcard.com/report/github.com/spy16/fusion) ![Go](https://github.com/spy16/fusion/workflows/Go/badge.svg?branch=master)
+
 Fusion is a tiny stream processing library written in `Go`.
 
 ## Features
