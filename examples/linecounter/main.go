@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	fusion2 "github.com/spy16/fusion"
+	"github.com/spy16/fusion"
 )
 
 func main() {
@@ -18,11 +18,11 @@ func main() {
 
 	counter := int64(0)
 
-	fu := fusion2.Runner{
-		Stream: &fusion2.LineStream{From: os.Stdin},
-		Proc: &fusion2.Fn{
+	fu := fusion.Runner{
+		Stream: &fusion.LineStream{From: os.Stdin},
+		Proc: &fusion.Fn{
 			Workers: 5,
-			Func: func(ctx context.Context, msg fusion2.Msg) error {
+			Func: func(ctx context.Context, msg fusion.Msg) error {
 				atomic.AddInt64(&counter, 1)
 				return nil
 			},
