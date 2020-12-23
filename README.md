@@ -1,14 +1,18 @@
 # 💥 Fusion
 
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/spy16/fusion)](https://pkg.go.dev/github.com/spy16/fusion)[![Go Report Card](https://goreportcard.com/badge/github.com/spy16/fusion)](https://goreportcard.com/report/github.com/spy16/fusion)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/spy16/fusion)](https://pkg.go.dev/github.com/spy16/fusion)[![Go Report
+Card](https://goreportcard.com/badge/github.com/spy16/fusion)](https://goreportcard.com/report/github.com/spy16/fusion)
 
 Fusion is a tiny stream processing library written in `Go`.
+
+See [reactor](./reactor) for a simple tool that consumes Protobuf message from Kafka and prints JSON formatted version
+of each message.
 
 ## Features
 
 * Simple & lightweight.
-* Highly Composable. Compose `Proc` implementations in a way that is similar to 
-  middleware pattern to get concurrent processing, automatic retries etc.
+* Highly Composable. Compose `Proc` implementations in a way that is similar to middleware pattern to get concurrent
+  processing, automatic retries etc.
 * Use for simple single node or more complex distributed setup by using different
   `fusion.Stream` and `fusion.Proc` implementations.
 

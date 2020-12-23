@@ -1,5 +1,3 @@
-// +build protobuf
-
 package main
 
 import (

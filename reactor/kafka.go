@@ -1,5 +1,3 @@
-// +build kafka
-
 package main
 
 import (
@@ -40,9 +38,6 @@ type KafkaStream struct {
 }
 
 func (k KafkaStream) Out(ctx context.Context) (<-chan fusion.Msg, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	out := make(chan fusion.Msg)
 	go k.stream(ctx, out)
 

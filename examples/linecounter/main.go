@@ -12,6 +12,8 @@ import (
 	"github.com/spy16/fusion"
 )
 
+// some thing
+
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	go callOnInterrupt(cancel)
