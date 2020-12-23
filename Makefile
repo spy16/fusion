@@ -10,10 +10,12 @@ fmt:
 clean:
 	@echo "Cleaning up..."
 	@go mod tidy -v
+	@cd ./reactor && go mod tidy -v
 
 test:
 	@echo "Running tests..."
 	@go test -cover ./...
+	@cd ./reactor && go test -cover ./...
 
 test-verbose:
 	@echo "Running tests..."

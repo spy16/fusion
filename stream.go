@@ -15,8 +15,8 @@ var _ Stream = (*LineStream)(nil)
 type Stream interface {
 	// Out should return a channel to which it independently writes the data
 	// stream to. Stream is responsible for closing the returned channel once
-	// the data is exhausted. goroutines spawned by the source must be tied
-	// to the given context and exit when context is cancelled.
+	// the data is exhausted or when the stream worker exits. All goroutines
+	// spawned by the stream must exit when the given context is cancelled.
 	Out(ctx context.Context) (<-chan Msg, error)
 }
 
@@ -47,7 +47,7 @@ func (sf StreamFn) Out(ctx context.Context) (<-chan Msg, error) {
 	return stream, nil
 }
 
-// LineStream implements a source using io.Reader. This implementation scans
+// LineStream implements a Stream using io.Reader. This implementation scans
 // the reader line-by-line and streams each line as a message. If offset is
 // set, 'offset' number of lines are read and skipped. If Size is set, only
 // 'size' number of lines are read after which the source will return EOF.

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Backoff represents a backoff strategy to be used by the actor.
+// Backoff represents a backoff strategy to be used by the Retrier.
 type Backoff interface {
 	// RetryAfter should return the time duration which should be
 	// elapsed before the next queueForRetry.

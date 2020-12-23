@@ -2,18 +2,22 @@ package retry
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"log"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/spy16/fusion"
 )
 
-var _ fusion.Proc = (*Proc)(nil)
+var _ fusion.Proc = (*Retrier)(nil)
 
-// Proc is a fusion Proc that can wrap other Proc implementation to provide
+// Retrier is a fusion Proc that can wrap other Proc implementation to provide
 // automatic retries.
-type Proc struct {
+type Retrier struct {
 	// Proc is the fusion Proc that must be executed for each message.
 	// This field must be set.
 	Proc fusion.Proc
@@ -31,23 +35,42 @@ type Proc struct {
 	// before returning Fail status. Defaults to 3.
 	MaxRetries int
 
-	// Workers is the number of main worker threads to use.
-	Workers int
+	// EnqueueWorkers is the number of worker threads to use for moving
+	// messages from stream to the queue.
+	EnqueueWorkers int
+
+	// ProcWorkers is the number of main worker threads to use for running
+	// proc.
+	ProcWorkers int
+
+	// OnFailure is called when a message fails and exhausts all retries.
+	// If not set, such messages will be logged and discarded.
+	OnFailure func(item Item)
 }
 
 // Run starts the proc workers and the retry worker threads and blocks until
 // all the workers return.
-func (ret *Proc) Run(ctx context.Context, stream <-chan fusion.Msg) error {
+func (ret *Retrier) Run(ctx context.Context, stream <-chan fusion.Msg) error {
 	if err := ret.init(); err != nil {
 		return err
 	}
 
 	wg := &sync.WaitGroup{}
-	for i := 0; i < ret.Workers; i++ {
+	for i := 0; i < ret.EnqueueWorkers; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			ret.enqueue(ctx, stream)
+			ret.enqueueWorker(ctx, stream)
+		}(i)
+	}
+
+	// TODO: co-ordinate these 2 workers better.
+
+	for i := 0; i < ret.ProcWorkers; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			ret.procWorker(ctx)
 		}(i)
 	}
 	wg.Wait()
@@ -55,18 +78,18 @@ func (ret *Proc) Run(ctx context.Context, stream <-chan fusion.Msg) error {
 	return nil
 }
 
-func (ret *Proc) queueWorker(ctx context.Context) {
+func (ret *Retrier) procWorker(ctx context.Context) {
 	_ = ret.Queue.Dequeue(ctx, func(ctx context.Context, item Item) error {
 		if item.Attempts >= ret.MaxRetries {
-			// TODO: Push this message to a Dead Queue or failure storage.
-			return nil
+			ret.OnFailure(item)
 		}
 
+		// TODO: invoke proc.
 		return nil
 	})
 }
 
-func (ret *Proc) enqueue(ctx context.Context, stream <-chan fusion.Msg) {
+func (ret *Retrier) enqueueWorker(ctx context.Context, stream <-chan fusion.Msg) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -74,7 +97,9 @@ func (ret *Proc) enqueue(ctx context.Context, stream <-chan fusion.Msg) {
 
 		case msg, open := <-stream:
 			if !open {
-				// TODO: signal the delay queue to close?
+				if closer, ok := ret.Queue.(io.Closer); ok {
+					_ = closer.Close()
+				}
 				return
 			}
 
@@ -88,13 +113,13 @@ func (ret *Proc) enqueue(ctx context.Context, stream <-chan fusion.Msg) {
 	}
 }
 
-func (ret *Proc) init() error {
+func (ret *Retrier) init() error {
 	if ret.Proc == nil {
 		return errors.New("proc must be set")
 	}
 
-	if ret.Workers <= 0 {
-		ret.Workers = 1
+	if ret.EnqueueWorkers <= 0 {
+		ret.EnqueueWorkers = 1
 	}
 
 	if ret.Queue == nil {
@@ -107,6 +132,14 @@ func (ret *Proc) init() error {
 
 	if ret.MaxRetries == 0 {
 		ret.MaxRetries = 3
+	}
+
+	if ret.OnFailure == nil {
+		ret.OnFailure = func(item Item) {
+			var s strings.Builder
+			_ = json.NewEncoder(&s).Encode(item)
+			log.Printf("retry exhausted: %s", s.String())
+		}
 	}
 	return nil
 }
