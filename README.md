@@ -5,8 +5,7 @@ Card](https://goreportcard.com/badge/github.com/spy16/fusion)](https://goreportc
 
 Fusion is a tiny stream processing library written in `Go`.
 
-See [reactor](./reactor) for a simple tool that consumes Protobuf message from Kafka and prints JSON formatted version
-of each message.
+See [reactor](https://github.com/spy16/reactor) for a stream processing tool built using fusion. 
 
 ## Features
 
@@ -15,6 +14,7 @@ of each message.
   processing, automatic retries etc.
 * Use for simple single node or more complex distributed setup by using different
   `fusion.Stream` and `fusion.Proc` implementations.
+* Zero dependencies.
 
 ## Usage
 
@@ -34,14 +34,14 @@ import (
 func main() {
 	count := int64(0)
 	runner := fusion.Runner{
-		Stream: &fusion.LineStream{From: os.Stdin},
-		Proc: &fusion.Fn{
-			Workers: 5,
-			Func: func(ctx context.Context, msg fusion.Msg) error {
-				atomic.AddInt64(&count, 1)
-				return nil
-			},
-		},
+      Stream: &fusion.LineStream{From: os.Stdin},
+      Proc: &fusion.Fn{
+      	Workers: 5,
+      	Func: func(ctx context.Context, msg fusion.Msg) error {
+      	  atomic.AddInt64(&count, 1)
+      	  return nil
+      	},
+      },
 	}
 	_ = runner.Run(context.Background())
 	fmt.Printf("Count=%d\n", count)
