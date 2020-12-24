@@ -1,6 +1,3 @@
-VERSION="`git describe --abbrev=0 --tags`"
-COMMIT="`git rev-list -1 --abbrev-commit HEAD`"
-
 all: clean fmt test
 
 fmt:
@@ -10,12 +7,10 @@ fmt:
 clean:
 	@echo "Cleaning up..."
 	@go mod tidy -v
-	@cd ./reactor && go mod tidy -v
 
 test:
 	@echo "Running tests..."
 	@go test -cover ./...
-	@cd ./reactor && go test -cover ./...
 
 test-verbose:
 	@echo "Running tests..."
