@@ -9,25 +9,25 @@
 
     ```json
     {
-      "topic": "my-kafka-topic",
-      "kafka": {
-        "bootstrap.servers": "my-kafka-node:6668",
-        "group.id": "reactor-test",
-        "auto.offset.reset": "latest",
-        "socket.keepalive.enable": true
-      },
-      "message_type": "com.example.MyMessage",
-      "proto_files": [
-        "com/example/MyMessage.proto"
-      ],
-      "proto_import_dirs": [
-        "./my-protobuf-project"
-      ]
-    }
+        "kafka": {
+          "workers": 10,
+           "topic": "my-topic",
+           "group_id": "fusion-test",
+           "brokers": [
+               "p-gojek-id-mainstream.golabs.io:6668"
+           ]
+        },
+        "message_type": "com.my.Message",
+        "proto_files": [
+            "com/my/message.proto"
+        ],
+        "proto_import_dirs": [
+            "/Users/bob/workspace/myproto-project/src/main/proto"
+        ]
+    } 
     ```
    
-   > Note: Value of `kafka` key can contain any valid config
-   from [librdkafka configs](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md).
+   > Note: See [kafka.go](./kafka.go) for config options for Kafka.
 
 3. Run `reactor -config my_config.json`. When you run this, `reactor` will:
 

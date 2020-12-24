@@ -54,27 +54,16 @@ func (fn *Fn) Run(ctx context.Context, stream <-chan Msg) error {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			fn.work(ctx, stream)
+			for msg := range stream {
+				msg.Ack(fn.Func(ctx, msg))
+			}
+			fn.Logger.Infof("stream closed, worker %d exiting", id)
 		}(i)
 	}
 	wg.Wait()
 
+	fn.Logger.Infof("all workers exited")
 	return nil
-}
-
-func (fn *Fn) work(ctx context.Context, stream <-chan Msg) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case msg, open := <-stream:
-			if !open {
-				return
-			}
-			msg.Ack(fn.Func(ctx, msg))
-		}
-	}
 }
 
 func (fn *Fn) init() {

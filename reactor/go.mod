@@ -3,8 +3,10 @@ module github.com/spy16/fusion/reactor
 go 1.15
 
 require (
-	github.com/confluentinc/confluent-kafka-go v1.5.2 // indirect
 	github.com/jhump/protoreflect v1.8.1
+	github.com/segmentio/kafka-go v0.4.8
+	github.com/sirupsen/logrus v1.7.0
 	github.com/spy16/fusion v0.3.0
-	gopkg.in/confluentinc/confluent-kafka-go.v1 v1.5.2
 )
+
+replace github.com/spy16/fusion => /Users/shiva/workspace/personal/fusion

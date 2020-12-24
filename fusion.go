@@ -43,6 +43,7 @@ func (fu Runner) Run(ctx context.Context) error {
 	}
 
 	if err := fu.Proc.Run(ctx, streamCh); err != nil {
+		fu.Logger.Warnf("proc exited with error: %v", err)
 		fu.drainAll(streamCh)
 		return err
 	}
@@ -52,9 +53,11 @@ func (fu Runner) Run(ctx context.Context) error {
 
 func (fu *Runner) drainAll(ch <-chan Msg) {
 	if fu.DrainTime == 0 {
+		fu.Logger.Warnf("drain time is not set, not draining stream")
 		return
 	}
 
+	fu.Logger.Infof("drain time is set, waiting for %s", fu.DrainTime)
 	for {
 		select {
 		case <-time.After(fu.DrainTime):
@@ -70,14 +73,17 @@ func (fu *Runner) drainAll(ch <-chan Msg) {
 }
 
 func (fu *Runner) init() error {
+	if fu.Logger == nil {
+		fu.Logger = noOpLogger{}
+	}
+
 	if fu.Stream == nil {
 		return errors.New("stream must not be nil")
 	}
+
 	if fu.Proc == nil {
+		fu.Logger.Warnf("proc is not set, using no-op")
 		fu.Proc = &Fn{}
-	}
-	if fu.Logger == nil {
-		fu.Logger = noOpLogger{}
 	}
 	return nil
 }

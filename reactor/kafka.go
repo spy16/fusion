@@ -3,70 +3,74 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"math/rand"
-	"strings"
-	"time"
+	"sync"
+
+	"github.com/segmentio/kafka-go"
 
 	"github.com/spy16/fusion"
-	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
-// KafkaConnect connects to the Kafka cluster with given configs and subscribes
-// to the topic.
-func KafkaConnect(topic string, configMap kafka.ConfigMap) (*KafkaStream, error) {
-	cons, err := kafka.NewConsumer(sanitiseConfig(configMap))
-	if err != nil {
-		return nil, err
-	}
-	if err := cons.Subscribe(topic, nil); err != nil {
-		_ = cons.Close()
-		return nil, err
-	}
-
-	return &KafkaStream{
-		topic:    topic,
-		grpID:    configMap["group.id"].(string),
-		consumer: cons,
-	}, nil
-}
-
 type KafkaStream struct {
-	topic    string
-	grpID    string
-	consumer *kafka.Consumer
+	Brokers []string      `json:"brokers"`
+	Topic   string        `json:"topic"`
+	GroupID string        `json:"group_id"`
+	Workers int           `json:"workers"`
+	Logger  fusion.Logger `json:"-"`
 }
 
-func (k KafkaStream) Out(ctx context.Context) (<-chan fusion.Msg, error) {
+func (ks KafkaStream) Out(ctx context.Context) (<-chan fusion.Msg, error) {
+	conf := kafka.ReaderConfig{
+		Brokers: ks.Brokers,
+		Topic:   ks.Topic,
+		GroupID: ks.GroupID,
+	}
+	if err := conf.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
 	out := make(chan fusion.Msg)
-	go k.stream(ctx, out)
+	kafkaReader := kafka.NewReader(conf)
+
+	go func() {
+		defer close(out)
+
+		wg := &sync.WaitGroup{}
+		for i := 0; i < ks.Workers; i++ {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				ks.streamKafka(ctx, kafkaReader, out)
+				ks.Logger.Infof("worker %d exited", id)
+			}(i)
+		}
+		wg.Wait()
+		ks.Logger.Infof("all workers exited, closing stream")
+	}()
 
 	return out, nil
 }
 
-func (k *KafkaStream) stream(ctx context.Context, out chan<- fusion.Msg) {
-	defer close(out)
-
+func (ks KafkaStream) streamKafka(ctx context.Context, kr *kafka.Reader, out chan<- fusion.Msg) {
 	for ctx.Err() == nil {
-		km, err := k.consumer.ReadMessage(3 * time.Second)
+		ks.Logger.Infof("fetching message...")
+		msg, err := kr.FetchMessage(ctx)
 		if err != nil {
-			ke, ok := err.(kafka.Error)
-			if !ok || ke.Code() != kafka.ErrTimedOut {
-				log.Printf("read failed: %v", err)
-			}
+			ks.Logger.Errorf("reading from kafka failed: %v", err)
 			continue
 		}
 
+		ks.Logger.Infof("message received.")
 		fuMsg := fusion.Msg{
-			Key:     km.Key,
-			Val:     km.Value,
-			Attribs: map[string]string{"topic": k.topic},
+			Key:     msg.Key,
+			Val:     msg.Value,
+			Attribs: map[string]string{"topic": kr.Stats().Topic},
 			Ack: func(err error) {
 				if err != nil {
+					ks.Logger.Warnf("got error for message, will not commit: %v", err)
 					// do not acknowledge. rely on auto-commit false.
 					return
 				}
-				_, _ = k.consumer.CommitMessage(km)
+				_ = kr.CommitMessages(ctx, msg)
 			},
 		}
 
@@ -76,15 +80,4 @@ func (k *KafkaStream) stream(ctx context.Context, out chan<- fusion.Msg) {
 		case out <- fuMsg:
 		}
 	}
-}
-
-func sanitiseConfig(configMap kafka.ConfigMap) *kafka.ConfigMap {
-	gID, _ := configMap["group.id"].(string)
-	gID = strings.TrimSpace(gID)
-	if gID == "" {
-		gID = fmt.Sprintf("kio_streamer_%d", rand.Int())
-	}
-	configMap["group.id"] = gID
-	configMap["enable.auto.commit"] = false
-	return &configMap
 }
