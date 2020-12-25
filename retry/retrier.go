@@ -2,11 +2,8 @@ package retry
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
-	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +43,10 @@ type Retrier struct {
 	// OnFailure is called when a message fails and exhausts all retries.
 	// If not set, such messages will be logged and discarded.
 	OnFailure func(item Item)
+
+	// Log can be set to customise logging mechanism used by retrier. If
+	// not set, logging will be disabled.
+	Log fusion.Log
 }
 
 // Run starts the proc workers and the retry worker threads and blocks until
@@ -118,6 +119,10 @@ func (ret *Retrier) init() error {
 		return errors.New("proc must be set")
 	}
 
+	if ret.Log == nil {
+		ret.Log = func(_ map[string]interface{}) {}
+	}
+
 	if ret.EnqueueWorkers <= 0 {
 		ret.EnqueueWorkers = 1
 	}
@@ -136,9 +141,11 @@ func (ret *Retrier) init() error {
 
 	if ret.OnFailure == nil {
 		ret.OnFailure = func(item Item) {
-			var s strings.Builder
-			_ = json.NewEncoder(&s).Encode(item)
-			log.Printf("retry exhausted: %s", s.String())
+			ret.Log(map[string]interface{}{
+				"level":   "warn",
+				"item":    item,
+				"message": "retry exhausted, discarding item.",
+			})
 		}
 	}
 	return nil

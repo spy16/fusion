@@ -3,6 +3,8 @@ package fusion
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"time"
 )
 
@@ -21,9 +23,9 @@ type Runner struct {
 	// not be drained.
 	DrainTime time.Duration
 
-	// Logger to be used by the Runner. If not set, a no-op logger will be
+	// Log to be used by the Runner. If not set, a no-op value will be
 	// used.
-	Logger Logger
+	Log Log
 }
 
 // Run spawns all the worker goroutines and blocks until all of them exit.
@@ -40,10 +42,15 @@ func (fu Runner) Run(ctx context.Context) error {
 	streamCh, err := fu.Stream.Out(ctx)
 	if err != nil {
 		return err
+	} else if streamCh == nil {
+		return io.EOF
 	}
 
 	if err := fu.Proc.Run(ctx, streamCh); err != nil {
-		fu.Logger.Warnf("proc exited with error: %v", err)
+		fu.Log(map[string]interface{}{
+			"level":   "warn",
+			"message": fmt.Sprintf("proc exited with error: %v", err),
+		})
 		fu.drainAll(streamCh)
 		return err
 	}
@@ -53,11 +60,17 @@ func (fu Runner) Run(ctx context.Context) error {
 
 func (fu *Runner) drainAll(ch <-chan Msg) {
 	if fu.DrainTime == 0 {
-		fu.Logger.Warnf("drain time is not set, not draining stream")
+		fu.Log(map[string]interface{}{
+			"level":   "warn",
+			"message": "drain time is not set, not draining stream",
+		})
 		return
 	}
 
-	fu.Logger.Infof("drain time is set, waiting for %s", fu.DrainTime)
+	fu.Log(map[string]interface{}{
+		"level":   "info",
+		"message": fmt.Sprintf("drain time is set, waiting for %s", fu.DrainTime),
+	})
 	for {
 		select {
 		case <-time.After(fu.DrainTime):
@@ -73,8 +86,8 @@ func (fu *Runner) drainAll(ch <-chan Msg) {
 }
 
 func (fu *Runner) init() error {
-	if fu.Logger == nil {
-		fu.Logger = noOpLogger{}
+	if fu.Log == nil {
+		fu.Log = func(_ map[string]interface{}) {}
 	}
 
 	if fu.Stream == nil {
@@ -82,23 +95,15 @@ func (fu *Runner) init() error {
 	}
 
 	if fu.Proc == nil {
-		fu.Logger.Warnf("proc is not set, using no-op")
+		fu.Log(map[string]interface{}{
+			"level":   "warn",
+			"message": "proc is not set, using no-op",
+		})
 		fu.Proc = &Fn{}
 	}
 	return nil
 }
 
-// Logger implementations provide logging facilities for Actor.
-type Logger interface {
-	Debugf(msg string, args ...interface{})
-	Infof(msg string, args ...interface{})
-	Warnf(msg string, args ...interface{})
-	Errorf(msg string, args ...interface{})
-}
-
-type noOpLogger struct{}
-
-func (g noOpLogger) Debugf(msg string, args ...interface{}) {}
-func (g noOpLogger) Infof(msg string, args ...interface{})  {}
-func (g noOpLogger) Warnf(msg string, args ...interface{})  {}
-func (g noOpLogger) Errorf(msg string, args ...interface{}) {}
+// Log implementation provides structured logging facilities for fusion
+// components.
+type Log func(_ map[string]interface{})

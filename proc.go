@@ -2,25 +2,11 @@ package fusion
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"sync"
 )
 
 var _ Proc = (*Fn)(nil)
-
-var (
-	// Skip can be passed as argument to the Ack method of Msg to signal
-	// that the message should be skipped.
-	Skip = errors.New("skip message")
-
-	// Fail can be passed as argument to the Ack method of Msg to signal
-	// that the message should be failed immediately without retries.
-	Fail = errors.New("fail message")
-
-	// Retry can be returned from a proc implementations when processing
-	// a message failed and should be retried later sometime.
-	Retry = errors.New("retry message")
-)
 
 // Proc represents a processor in the stream pipeline.
 type Proc interface {
@@ -32,21 +18,26 @@ type Proc interface {
 	Run(ctx context.Context, stream <-chan Msg) error
 }
 
+// ProcFn implements Proc using a simple Go function.
+type ProcFn func(ctx context.Context, stream <-chan Msg) error
+
+// Run dispatches the msg to the wrapped function.
+func (pf ProcFn) Run(ctx context.Context, stream <-chan Msg) error { return pf(ctx, stream) }
+
 // Fn implements a concurrent Proc using a custom processor function.
 type Fn struct {
-	Logger
+	// Number of worker threads to launch for processing messages.
+	// If not set, defaults to 1.
+	Workers int
 
 	// Func is the function to invoke for each message. If not set,
 	// uses a no-op func.
 	Func func(ctx context.Context, msg Msg) error
-
-	// Number of worker threads to launch for processing messages.
-	// If not set, defaults to 1.
-	Workers int
 }
 
 // Run spawns the configured number of worker threads.
 func (fn *Fn) Run(ctx context.Context, stream <-chan Msg) error {
+	log := LogFrom(ctx)
 	fn.init()
 
 	wg := &sync.WaitGroup{}
@@ -54,15 +45,23 @@ func (fn *Fn) Run(ctx context.Context, stream <-chan Msg) error {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
+
 			for msg := range stream {
-				msg.Ack(fn.Func(ctx, msg))
+				err := fn.Func(ctx, msg)
+				msg.Ack(err)
 			}
-			fn.Logger.Infof("stream closed, worker %d exiting", id)
+			log(map[string]interface{}{
+				"level":   "info",
+				"message": fmt.Sprintf("stream closed, worker %d exiting", id),
+			})
 		}(i)
 	}
 	wg.Wait()
 
-	fn.Logger.Infof("all workers exited")
+	log(map[string]interface{}{
+		"level":   "info",
+		"message": "all workers exited",
+	})
 	return nil
 }
 
@@ -71,9 +70,6 @@ func (fn *Fn) init() {
 		fn.Func = func(_ context.Context, _ Msg) error {
 			return Skip
 		}
-	}
-	if fn.Logger == nil {
-		fn.Logger = noOpLogger{}
 	}
 	if fn.Workers == 0 {
 		fn.Workers = 1

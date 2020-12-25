@@ -9,9 +9,13 @@ import (
 )
 
 func TestMessage_Clone(t *testing.T) {
+	originalAck := false
 	msg := fusion2.Msg{
 		Key: []byte("aello"),
 		Val: []byte("world"),
+		Ack: func(err error) {
+			originalAck = true
+		},
 	}
 	clone := msg.Clone()
 
@@ -22,4 +26,6 @@ func TestMessage_Clone(t *testing.T) {
 	msg.Key[0] = 'h'
 	assert.Equal(t, msg.Key, []byte("hello"))
 	assert.Equal(t, clone.Key, []byte("aello"))
+	clone.Ack(nil) // ack should not affect originalAck
+	assert.False(t, originalAck)
 }

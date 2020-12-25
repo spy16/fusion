@@ -1,5 +1,21 @@
 package fusion
 
+import "errors"
+
+var (
+	// Skip can be passed as argument to the Ack method of Msg to signal
+	// that the message should be skipped.
+	Skip = errors.New("skip message")
+
+	// Fail can be passed as argument to the Ack method of Msg to signal
+	// that the message should be failed immediately without retries.
+	Fail = errors.New("fail message")
+
+	// Retry can be returned from a proc implementations when processing
+	// a message failed and should be retried later sometime.
+	Retry = errors.New("retry message")
+)
+
 // Msg represents a message with one or more payloads.
 type Msg struct {
 	Key     []byte            `json:"key"`
