@@ -5,7 +5,7 @@ Card](https://goreportcard.com/badge/github.com/spy16/fusion)](https://goreportc
 
 Fusion is a tiny stream processing library written in `Go`.
 
-See [reactor](https://github.com/spy16/reactor) for a stream processing tool built using fusion. 
+See [reactor](./reactor) for a stream processing tool built using fusion. 
 
 ## Features
 

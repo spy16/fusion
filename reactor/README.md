@@ -4,7 +4,7 @@
 
 ## Usage
 
-1. Install `reactor` using `go get -u -v github.com/spy16/reactor`
+1. Install `reactor` using `go get -u -v github.com/spy16/fusion/reactor`
 2. Create a config file `my_config.json` by referring to config files in [samples](./samples) 
 3. Run `reactor -config my_config.json`. When you run this, `reactor` will:
 
