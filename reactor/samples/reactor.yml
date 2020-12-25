@@ -1,0 +1,23 @@
+# sample config - [not supported yet].
+
+stream:
+  type: kafka
+  config:
+    brokers:
+      - localhost:9090
+    topic: foo
+    consumers: 10
+
+procs:
+  - type: protobuf-decode
+    config:
+      message_type: com.foo.MyMessage
+      files:
+        - com/foo/mymessage.proto
+  - type: lua
+    config:
+      exec: handle.lua
+  - type: json-encode
+    config:
+      indent: true
+      output: stdout

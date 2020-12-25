@@ -1,0 +1,12 @@
+{
+  "kafka": {
+    "brokers": [
+      "localhost:9092"
+    ],
+    "topic": "foo",
+    "group_id": "fusion_test",
+    "workers": 10,
+    "min_bytes": 1,
+    "max_bytes": 100000
+  }
+}

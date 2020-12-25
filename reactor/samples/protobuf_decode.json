@@ -1,0 +1,21 @@
+{
+  "kafka": {
+    "brokers": [
+      "localhost:9092"
+    ],
+    "topic": "foo",
+    "group_id": "fusion_test",
+    "workers": 10,
+    "min_bytes": 1,
+    "max_bytes": 100000
+  },
+  "protobuf": {
+    "message_type": "com.my.Message",
+    "files": [
+      "com/my/message.proto"
+    ],
+    "import_paths": [
+      "/Users/bob/projects/myproto/src/main/proto"
+    ]
+  }
+}
