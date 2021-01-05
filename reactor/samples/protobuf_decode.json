@@ -9,7 +9,7 @@
     "min_bytes": 1,
     "max_bytes": 100000
   },
-  "protobuf": {
+  "proto": {
     "message_type": "com.my.Message",
     "files": [
       "com/my/message.proto"
