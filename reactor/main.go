@@ -41,6 +41,10 @@ func main() {
 
 				protoMsg, err := cfg.Proto.Unmarshal(msg.Val)
 				if err != nil {
+					jsonLog(map[string]interface{}{
+						"level":   "error",
+						"message": err.Error(),
+					})
 					return err
 				}
 				_ = json.NewEncoder(os.Stdout).Encode(protoMsg)
