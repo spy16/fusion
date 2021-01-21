@@ -45,6 +45,13 @@ func (ks Kafka) Out(ctx context.Context) (<-chan fusion.Msg, error) {
 
 	out := make(chan fusion.Msg)
 	kafkaReader := kafka.NewReader(conf)
+	stats := kafkaReader.Stats()
+
+	ks.log(map[string]interface{}{
+		"level":       "info",
+		"message":     fmt.Sprintf("reader initialised to '%s'", stats.Topic),
+		"current_lag": kafkaReader.Lag(),
+	})
 
 	go func() {
 		defer close(out)

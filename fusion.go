@@ -36,7 +36,7 @@ func (fu Runner) Run(ctx context.Context) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(withLog(ctx, fu.Log))
 	defer cancel()
 
 	streamCh, err := fu.Stream.Out(ctx)
